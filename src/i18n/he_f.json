@@ -1,0 +1,27 @@
+{
+  "app.title":             "מיה — קוראים יחד",
+
+  "signin.title":          "כניסה להורים",
+  "signin.subtitle":       "הכניסו את כתובת האימייל שלכם. נשלח קוד כניסה בן 6 ספרות.",
+  "signin.email.placeholder": "your@email.com",
+  "signin.send":           "שלחו קוד כניסה",
+  "signin.sending":        "...שולח",
+  "signin.sent.title":     "נשלח קוד!",
+  "signin.sent.body":      "שלחנו קוד כניסה בן 6 ספרות ל-{email}",
+  "signin.code.label":     "הכניסו את הקוד מהאימייל:",
+  "signin.verify":         "כניסה ✓",
+  "signin.verifying":      "...מאמת",
+  "signin.resend":         "שלחו שוב",
+  "signin.code.validity":  "הקוד תקף ל-60 דקות",
+  "signin.error.send":     "לא הצלחנו לשלוח אימייל. נסו שוב.",
+  "signin.error.verify":   "קוד שגוי או פג תוקף. נסו שוב.",
+
+  "home.greeting":         "שלום, {name}! 👋",
+  "home.greeting.noname":  "שלום! 👋",
+  "home.welcome":          "ברוכה הבאה לקריאה!",
+  "home.comingsoon":       "בקרוב נתחיל לקרוא יחד סיפורים 📖",
+  "home.signout":          "יציאה",
+
+  "loading":               "...רגע",
+  "savingProgress":        "שומרים את ההתקדמות..."
+}
