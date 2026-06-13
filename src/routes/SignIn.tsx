@@ -31,14 +31,22 @@ export function SignIn({ gender }: SignInProps) {
     setLoading(true);
     setError(null);
 
+    // Invite-only: never auto-create accounts. Combined with "Allow new users
+    // to sign up" disabled in the Supabase dashboard, only pre-added emails can
+    // sign in — so the public URL can be shared without strangers registering.
     const { error: err } = await supabase.auth.signInWithOtp({
       email:   email.trim(),
-      options: { shouldCreateUser: true },
+      options: { shouldCreateUser: false },
     });
 
     setLoading(false);
     if (err) {
-      setError(t('signin.error.send', g));
+      // An unknown / non-allowed email is rejected here (status 422 /
+      // "Signups not allowed"). Show a clear "not on the list" message rather
+      // than the generic send failure.
+      const status = (err as { status?: number }).status;
+      const notAllowed = status === 422 || /not allowed|signups?\b|not authorized/i.test(err.message);
+      setError(t(notAllowed ? 'signin.error.unknown' : 'signin.error.send', g));
       console.error('[SignIn] send:', err.message);
     } else {
       setSent(true);
