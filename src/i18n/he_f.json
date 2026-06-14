@@ -15,7 +15,6 @@
   "signin.code.validity":  "הקוד תקף ל-60 דקות",
   "signin.error.send":     "לא הצלחנו לשלוח אימייל. נסו שוב.",
   "signin.error.verify":   "קוד שגוי או פג תוקף. נסו שוב.",
-  "signin.error.unknown":  "כתובת האימייל הזו אינה מורשית לכניסה.",
 
   "home.greeting":         "שלום, {name}! 👋",
   "home.greeting.noname":  "שלום! 👋",
