@@ -1,60 +1,127 @@
 import { useEffect, useState } from 'react';
 import { supabase, SUPABASE_CONFIGURED } from './lib/supabase';
-import { loadProfile, DEFAULT_PROFILE, type Profile } from './lib/profile';
+import { loadLocalProfile, createProfile, type Profile } from './lib/profile';
+import { initSync, clearSync } from './lib/sync';
+import type { AvatarId, Gender, SessionMode } from './types';
 import { SignIn } from './routes/SignIn';
+import { Welcome } from './routes/Welcome';
+import { AvatarPicker } from './routes/AvatarPicker';
+import { ChildSetup } from './routes/ChildSetup';
 import { Home } from './routes/Home';
+import { ModePicker } from './routes/ModePicker';
+import { Session } from './routes/Session';
+import { TrophyRoom } from './routes/TrophyRoom';
 
 /**
- * No React Router — a screen state machine, same pattern as mia-math.
- * Week 1 has exactly three states; session/diagnostic screens join later.
+ * Screen state machine — no React Router (same pattern as mia-math).
+ *
+ * Auth gate first (when Supabase is configured), then the reading app machine
+ * runs off the local profile. Offline (no .env.local) skips the gate entirely —
+ * the whole Phase 1 flow is exercisable without a backend.
  */
-type Screen = 'loading' | 'signin' | 'home';
+type Screen =
+  | 'loading' | 'signin'
+  | 'welcome' | 'avatar' | 'childsetup'
+  | 'home' | 'mode' | 'session' | 'trophy';
+
+/** Where to land once we're past the auth gate. */
+function homeOrWelcome(): Screen {
+  return loadLocalProfile()?.onboardingComplete ? 'home' : 'welcome';
+}
 
 export default function App() {
-  // Dev/offline mode (no backend credentials): skip the auth gate entirely
-  const [screen,  setScreen]  = useState<Screen>(SUPABASE_CONFIGURED ? 'loading' : 'home');
-  const [profile, setProfile] = useState<Profile>(DEFAULT_PROFILE);
+  const [authed, setAuthed] = useState(!SUPABASE_CONFIGURED);
+  const [screen, setScreen] = useState<Screen>(SUPABASE_CONFIGURED ? 'loading' : homeOrWelcome());
+  const [profile, setProfile] = useState<Profile | null>(loadLocalProfile());
+
+  // Onboarding scratch (avatar + gender chosen before the profile exists).
+  const [draftAvatar, setDraftAvatar] = useState<AvatarId>('fox');
+  const [draftGender, setDraftGender] = useState<Gender>('f');
+  const [mode, setMode] = useState<SessionMode>('time');
 
   useEffect(() => {
     if (!SUPABASE_CONFIGURED) return;
-
-    // Picks up an existing session from shared-origin localStorage (signed in
-    // at the hub or math) — this is the cross-app auth propagation path.
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        loadProfile(session.user.id).then(setProfile);
-        setScreen('home');
-      } else {
-        setScreen('signin');
-      }
+      if (session) { initSync(session.user.id); setAuthed(true); setProfile(loadLocalProfile()); setScreen(homeOrWelcome()); }
+      else setScreen('signin');
     });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (session) {
-          loadProfile(session.user.id).then(setProfile);
-          setScreen('home');
-        } else {
-          setProfile(DEFAULT_PROFILE);
-          setScreen('signin');
-        }
-      },
-    );
-
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      if (session) { initSync(session.user.id); setAuthed(true); setProfile(loadLocalProfile()); setScreen(homeOrWelcome()); }
+      else { clearSync(); setAuthed(false); setScreen('signin'); }
+    });
     return () => subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (screen === 'loading') {
+  // ── Auth gate ───────────────────────────────────────────────────────────────
+  if (SUPABASE_CONFIGURED && !authed) {
+    if (screen === 'loading') {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-5xl animate-pulse">📖</div>
+        </div>
+      );
+    }
+    return <SignIn gender={profile?.gender ?? 'f'} />;
+  }
+
+  // ── Onboarding ────────────────────────────────────────────────────────────────
+  if (screen === 'welcome') return <Welcome onStart={() => setScreen('avatar')} />;
+  if (screen === 'avatar') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-5xl animate-pulse">📖</div>
-      </div>
+      <AvatarPicker
+        gender={draftGender}
+        onPick={id => { setDraftAvatar(id); setScreen('childsetup'); }}
+      />
+    );
+  }
+  if (screen === 'childsetup') {
+    return (
+      <ChildSetup
+        onDone={(name, gender) => {
+          setDraftGender(gender);
+          const p = createProfile(name, gender, draftAvatar);
+          setProfile(p);
+          setScreen('home');
+        }}
+      />
     );
   }
 
-  if (screen === 'signin') {
-    return <SignIn gender={profile.gender} />;
+  // From here on we need a profile.
+  if (!profile) return <Welcome onStart={() => setScreen('avatar')} />;
+
+  // ── App machine ─────────────────────────────────────────────────────────────
+  if (screen === 'mode') {
+    return (
+      <ModePicker
+        gender={profile.gender}
+        onPick={m => { setMode(m); setScreen('session'); }}
+        onTrophyRoom={() => setScreen('trophy')}
+      />
+    );
+  }
+  if (screen === 'session') {
+    return (
+      <Session
+        profile={profile}
+        mode={mode}
+        onExit={p => { setProfile(p); setScreen('home'); }}
+        onTrophyRoom={p => { setProfile(p); setScreen('trophy'); }}
+      />
+    );
+  }
+  if (screen === 'trophy') {
+    return <TrophyRoom profileId={profile.profileId} gender={profile.gender} onBack={() => setScreen('home')} />;
   }
 
-  return <Home profile={profile} />;
+  // Default: home.
+  return (
+    <Home
+      profile={profile}
+      onBegin={() => setScreen('mode')}
+      onTrophyRoom={() => setScreen('trophy')}
+      onSignOut={SUPABASE_CONFIGURED ? () => supabase.auth.signOut() : undefined}
+    />
+  );
 }

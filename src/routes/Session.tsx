@@ -1,0 +1,296 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type {
+  Gender,
+  MasteryMap,
+  NikudState,
+  PracticeAttempt,
+  PracticeItem,
+  Profile,
+  ScaffoldState,
+  SessionMode,
+  SessionPhase,
+  SessionRecord,
+} from '../types';
+import { t } from '../i18n/t';
+import { PassageComp, type AttemptResult } from '../components/formats/PassageComp';
+import { EndSession } from './EndSession';
+import { composeSession, pickItem } from '../lib/sessionComposer';
+import { applyOutcome, initScaffold } from '../lib/scaffold';
+import { applyAttemptToMastery, type AttemptLedger } from '../lib/masteryTracker';
+import { tallyAttempts } from '../lib/tally';
+import {
+  loadMasteryMap, saveMasteryMap,
+  loadLedger, saveLedger,
+  upsertSessionRecord, appendAttempts,
+  loadScaffoldMemory, saveScaffoldMemory,
+} from '../lib/sessionStore';
+import { syncPassageShown } from '../lib/sync';
+import { appendRecentPassageIds, appendRecentQuestionIds, loadRecentPassageIds, loadRecentQuestionIds } from '../lib/recentItems';
+import { bumpSessionsCompleted } from '../lib/profile';
+
+interface Props {
+  profile: Profile;
+  mode:    SessionMode;
+  onExit:  (updated: Profile) => void;
+  onTrophyRoom: (updated: Profile) => void;
+}
+
+interface RunItem {
+  item:  PracticeItem;
+  phase: SessionPhase;
+}
+
+function newId(): string {
+  try { return crypto.randomUUID(); } catch { return `a_${Date.now()}_${Math.random().toString(36).slice(2)}`; }
+}
+
+export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
+  const gender: Gender = profile.gender;
+  const g = { gender };
+  const sessionId = useMemo(newId, []);
+  const startedAt = useMemo(() => new Date().toISOString(), []);
+
+  // Persistent state carried across items (refs so item callbacks see latest).
+  const masteryRef = useRef<MasteryMap>(loadMasteryMap(profile.profileId));
+  const ledgerRef  = useRef<AttemptLedger>(loadLedger(profile.profileId));
+  const attemptsRef = useRef<PracticeAttempt[]>([]);
+  const seqRef = useRef(0);
+  const skillsSeenRef = useRef<Set<string>>(new Set());
+  const seenPassagesRef = useRef<Set<string>>(new Set());
+  const seenQuestionsRef = useRef<Set<string>>(new Set());
+
+  // Combo (consecutive first-attempt-correct).
+  const comboRef = useRef(0);
+  const maxComboRef = useRef(0);
+  const [combo, setCombo] = useState(0);
+
+  // Scaffold — starts from cross-session memory (per profile), floor from gap.
+  const floor = profile.gapProfileJson?.composerNotes.passageDifficultyFloor ?? 1;
+  const startNikud: NikudState = 'full';
+  const scaffoldRef = useRef<ScaffoldState>((() => {
+    const mem = loadScaffoldMemory(profile.profileId)['reading'];
+    return initScaffold(mem?.level ?? floor, mem?.nikud ?? startNikud);
+  })());
+
+  // Compose the plan once.
+  const plan = useMemo(() => composeSession({
+    sessionId,
+    profileId:       profile.profileId,
+    mode,
+    masteryMap:      masteryRef.current,
+    gapProfile:      profile.gapProfileJson,
+    startLevel:      scaffoldRef.current.level,
+    startNikud,
+    recentPassages:  loadRecentPassageIds(profile.profileId),
+    recentQuestions: loadRecentQuestionIds(profile.profileId),
+  }), [sessionId]);
+
+  const [items, setItems] = useState<RunItem[]>(
+    plan.plannedItems.map(p => ({ item: p.item, phase: p.sessionPhase })),
+  );
+  const [index, setIndex] = useState(0);
+  const [finished, setFinished] = useState(false);
+
+  const total = plan.targetItems ?? items.length;
+  const current = items[index];
+
+  // Mark the passage as shown the moment it renders (protects the no-repeat
+  // constraint even if the session is abandoned mid-passage — spec Part 9).
+  useEffect(() => {
+    if (!current) return;
+    seenPassagesRef.current.add(current.item.passage.id);
+    seenQuestionsRef.current.add(current.item.question.id);
+    syncPassageShown(current.item.passage.id);
+  }, [current?.item.itemId]);
+
+  // Partial-save on tab hide (kids close tabs mid-session — math lesson B7).
+  useEffect(() => {
+    const onHide = () => { if (document.visibilityState === 'hidden' && !finished) persistDraft(); };
+    document.addEventListener('visibilitychange', onHide);
+    return () => document.removeEventListener('visibilitychange', onHide);
+  });
+
+  function buildRecord(completed: boolean): SessionRecord {
+    const wordCountByPassage: Record<string, number> = {};
+    for (const a of attemptsRef.current) {
+      const it = items.find(r => r.item.passage.id === a.passageId);
+      if (it) wordCountByPassage[a.passageId] = it.item.passage.wordCount;
+    }
+    const tally = tallyAttempts(attemptsRef.current);
+    const wordsRead = Object.values(
+      Object.fromEntries(
+        attemptsRef.current
+          .filter(a => a.firstAttempt)
+          .map(a => [a.passageId, wordCountByPassage[a.passageId] ?? 0]),
+      ),
+    ).reduce((s, n) => s + n, 0);
+
+    return {
+      sessionId,
+      profileId:        profile.profileId,
+      mode,
+      startedAt,
+      completedAt:      completed ? new Date().toISOString() : null,
+      itemsAttempted:   tally.attempted,
+      itemsCorrect:     tally.correct,
+      primarySkillCode: plan.primarySkillCode,
+      wordsRead,
+      maxCombo:         maxComboRef.current,
+    };
+  }
+
+  function persistDraft() {
+    upsertSessionRecord(profile.profileId, buildRecord(false));
+    saveMasteryMap(profile.profileId, masteryRef.current);
+    saveLedger(profile.profileId, ledgerRef.current);
+  }
+
+  function handleAttempt(runItem: RunItem, r: AttemptResult) {
+    const attempt: PracticeAttempt = {
+      id:            newId(),
+      profileId:     profile.profileId,
+      sessionId,
+      itemId:        runItem.item.itemId,
+      passageId:     runItem.item.passage.id,
+      questionId:    runItem.item.question.id,
+      skillCode:     runItem.item.skillCode,
+      itemFormat:    runItem.item.format,
+      sessionPhase:  runItem.phase,
+      level:         runItem.item.level,
+      nikud:         runItem.item.nikud,
+      answer:        r.chosenOption,
+      correct:       r.correct,
+      firstAttempt:  r.firstAttempt,
+      usedHint:      r.usedHint,
+      signatureHit:  null,
+      responseMs:    r.responseMs,
+      readMs:        r.readMs,
+      sequenceNumber: seqRef.current++,
+      createdAt:     new Date().toISOString(),
+    };
+    attemptsRef.current.push(attempt);
+
+    if (r.firstAttempt) {
+      // Mastery (first attempts only).
+      const isNewForSkill = !skillsSeenRef.current.has(runItem.item.skillCode);
+      skillsSeenRef.current.add(runItem.item.skillCode);
+      const res = applyAttemptToMastery({
+        profileId: profile.profileId,
+        attempt,
+        masteryMap: masteryRef.current,
+        ledger: ledgerRef.current,
+        isNewSessionForSkill: isNewForSkill,
+      });
+      masteryRef.current = res.masteryMap;
+      ledgerRef.current  = res.ledger;
+
+      // Combo.
+      if (r.correct) {
+        comboRef.current += 1;
+        maxComboRef.current = Math.max(maxComboRef.current, comboRef.current);
+      } else {
+        comboRef.current = 0;
+      }
+      setCombo(comboRef.current);
+    }
+  }
+
+  function handleComplete(summary: { firstAttemptCorrect: boolean }) {
+    // Scaffold: apply the first-attempt outcome, re-pick the NEXT item's level
+    // if the scaffold moved (aggressive climb / patient drop).
+    const { state, move } = applyOutcome(scaffoldRef.current, summary.firstAttemptCorrect, floor);
+    scaffoldRef.current = state;
+
+    const nextIdx = index + 1;
+    if (move !== 'hold' && nextIdx < items.length && items[nextIdx].item.level !== state.level) {
+      const replacement = pickItem({
+        skill:            items[nextIdx].phase === 'blocked_practice' ? plan.primarySkillCode : undefined,
+        level:            state.level,
+        nikud:            state.nikud,
+        excludePassages:  seenPassagesRef.current,
+        excludeQuestions: seenQuestionsRef.current,
+      });
+      if (replacement) {
+        setItems(prev => prev.map((it, i) => (i === nextIdx ? { item: replacement, phase: it.phase } : it)));
+      }
+    }
+
+    if (nextIdx >= items.length) {
+      finish();
+    } else {
+      setIndex(nextIdx);
+    }
+  }
+
+  function finish() {
+    const record = buildRecord(true);
+    upsertSessionRecord(profile.profileId, record);
+    saveMasteryMap(profile.profileId, masteryRef.current);
+    saveLedger(profile.profileId, ledgerRef.current);
+    appendAttempts(profile.profileId, attemptsRef.current);
+    appendRecentPassageIds(profile.profileId, [...seenPassagesRef.current]);
+    appendRecentQuestionIds(profile.profileId, [...seenQuestionsRef.current]);
+    saveScaffoldMemory(profile.profileId, {
+      reading: { level: scaffoldRef.current.level, nikud: scaffoldRef.current.nikud, struggleSessions: 0 },
+    });
+    setRecord(record);
+    setFinished(true);
+  }
+
+  const [record, setRecord] = useState<SessionRecord | null>(null);
+  const updatedProfile = useMemo(
+    () => (finished ? bumpSessionsCompleted(profile) : profile),
+    [finished],
+  );
+
+  if (finished && record) {
+    const masteredCount = Object.values(masteryRef.current).filter(r => r.status === 'שליטה').length;
+    return (
+      <EndSession
+        record={record}
+        gender={gender}
+        name={profile.displayName}
+        masteredCount={masteredCount}
+        storiesRead={seenPassagesRef.current.size}
+        onHome={() => onExit(updatedProfile)}
+        onTrophyRoom={() => onTrophyRoom(updatedProfile)}
+      />
+    );
+  }
+
+  if (!current) {
+    // Bank exhausted before any item — degrade gracefully.
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 text-center">
+        <p className="text-lg text-gray-500">{t('trophy_room.empty', g)}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col items-center p-4 md:p-6">
+      {/* Header: progress + combo + exit */}
+      <div className="w-full max-w-2xl flex items-center justify-between mb-4">
+        <button onClick={() => finish()} className="text-sm text-gray-400 underline">
+          {t('session.exit', g)}
+        </button>
+        <div className="text-sm font-medium text-gray-500">
+          {t('session.progress', { ...g, current: index + 1, total })}
+        </div>
+        <div className="text-sm font-bold text-brand-coral min-w-16 text-start">
+          {combo >= 2 ? t('session.combo', { ...g, count: combo }) : ''}
+        </div>
+      </div>
+
+      <div className="flex-1 w-full flex items-start justify-center">
+        <PassageComp
+          key={current.item.itemId}
+          item={current.item}
+          gender={gender}
+          onAttempt={r => handleAttempt(current, r)}
+          onComplete={handleComplete}
+        />
+      </div>
+    </div>
+  );
+}

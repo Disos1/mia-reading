@@ -1,36 +1,75 @@
-import { supabase, SUPABASE_CONFIGURED } from './supabase';
-import type { Gender } from '../i18n/t';
+/**
+ * Profile store — localStorage-primary (offline-first).
+ *
+ * The hub is deferred to V1.5, so the reading app owns onboarding and stores
+ * the full Profile locally, keyed by profileId. When auth + the shared
+ * public.profiles land, this becomes a write-through cache; the shape already
+ * matches what the hub will hold.
+ */
 
-export interface Profile {
-  name: string | null;
-  gender: Gender;
+import type { Profile, Gender, AvatarId } from '../types';
+import { LS_PREFIX } from './supabase';
+
+export type { Profile } from '../types';
+
+const KEY = `${LS_PREFIX}profile`;
+
+export const DEFAULT_PROFILE: Profile = {
+  profileId:             '',
+  avatarId:              'fox',
+  gender:                'f',
+  displayName:           '',
+  onboardingComplete:    false,
+  diagnosticCompletedAt: null,
+  diagnosticVersion:     null,
+  gapProfileJson:        null,
+  sessionsCompleted:     0,
+  createdAt:             '',
+};
+
+export function loadLocalProfile(): Profile | null {
+  try {
+    const raw = localStorage.getItem(KEY);
+    return raw ? (JSON.parse(raw) as Profile) : null;
+  } catch {
+    return null;
+  }
 }
 
-/** Default when no profile row exists yet (hub onboarding not done). */
-export const DEFAULT_PROFILE: Profile = { name: null, gender: 'f' };
-
-/**
- * Loads the shared profile from public.profiles (written by the hub's
- * ChildSetup). The reading app never writes this table in Week 1 — it only
- * greets by name and picks the gendered locale. Missing row is a normal
- * state, not an error: the hub may not have onboarded yet.
- */
-export async function loadProfile(authUserId: string): Promise<Profile> {
-  if (!SUPABASE_CONFIGURED) return DEFAULT_PROFILE;
-
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('name, gender')
-    .eq('auth_user_id', authUserId)
-    .maybeSingle();
-
-  if (error || !data) {
-    if (error) console.warn('[profile] load failed:', error.message);
-    return DEFAULT_PROFILE;
+export function saveLocalProfile(profile: Profile): void {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(profile));
+  } catch {
+    // quota / disabled — non-fatal
   }
+}
 
-  return {
-    name: data.name ?? null,
-    gender: data.gender === 'm' ? 'm' : 'f',
+function newId(): string {
+  try {
+    return crypto.randomUUID();
+  } catch {
+    return `p_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  }
+}
+
+/** Create + persist a fresh profile at the end of onboarding. */
+export function createProfile(name: string, gender: Gender, avatarId: AvatarId): Profile {
+  const profile: Profile = {
+    ...DEFAULT_PROFILE,
+    profileId:          newId(),
+    avatarId,
+    gender,
+    displayName:        name,
+    onboardingComplete: true,
+    createdAt:          new Date().toISOString(),
   };
+  saveLocalProfile(profile);
+  return profile;
+}
+
+/** Increment the completed-session counter (drives re-diagnostic timing). */
+export function bumpSessionsCompleted(profile: Profile): Profile {
+  const next = { ...profile, sessionsCompleted: profile.sessionsCompleted + 1 };
+  saveLocalProfile(next);
+  return next;
 }

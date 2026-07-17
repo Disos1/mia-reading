@@ -1,4 +1,28 @@
 {
+  "welcome.subtitle":      "בוא נקרא יחד סיפורים. קודם נבחר חבר שילווה אותך.",
+  "avatar.title":          "בחר חבר",
+  "avatar.subtitle":       "הוא ילווה אותך בכל סיפור",
+  "avatar.fox":            "שועל",
+  "avatar.cat":            "חתול",
+  "avatar.unicorn":        "חד-קרן",
+  "avatar.dragon":         "דרקון",
+  "avatar.owl":            "ינשוף",
+  "avatar.whale":          "לוויתן",
+
+  "childsetup.name_placeholder": "הכניס את שמך…",
+  "childsetup.gender_q":   "אתה…",
+  "childsetup.cta":        "יאללה, נתחיל! 🚀",
+
   "home.welcome":          "ברוך הבא לקריאה!",
-  "home.comingsoon":       "בקרוב נתחיל לקרוא יחד סיפורים 📖"
+  "home.comingsoon":       "בקרוב נתחיל לקרוא יחד סיפורים 📖",
+  "home.begin":            "בוא נקרא! 📖",
+
+  "mode_picker.title":     "איך בא לך לקרוא היום?",
+
+  "session.thinking":         "רגע לחשוב על התשובה…",
+  "session.finished_reading": "סיימתי לקרוא ✓",
+
+  "hint.generic":          "קרא שוב את הקטע לאט — התשובה מסתתרת שם.",
+
+  "trophy_room.streak_zero": "תקרא היום ותתחיל שרשרת 🔥"
 }
