@@ -11,6 +11,9 @@ import { Home } from './routes/Home';
 import { ModePicker } from './routes/ModePicker';
 import { Session } from './routes/Session';
 import { TrophyRoom } from './routes/TrophyRoom';
+import { Diagnostic } from './routes/Diagnostic';
+import { DiagnosticIntro } from './routes/DiagnosticIntro';
+import { DiagnosticResults } from './routes/DiagnosticResults';
 
 /**
  * Screen state machine — no React Router (same pattern as mia-math).
@@ -22,6 +25,7 @@ import { TrophyRoom } from './routes/TrophyRoom';
 type Screen =
   | 'loading' | 'signin'
   | 'welcome' | 'avatar' | 'childsetup'
+  | 'diag_intro' | 'diag' | 'diag_results'
   | 'home' | 'mode' | 'session' | 'trophy';
 
 /** Where to land once we're past the auth gate. */
@@ -82,7 +86,7 @@ export default function App() {
           setDraftGender(gender);
           const p = createProfile(name, gender, draftAvatar);
           setProfile(p);
-          setScreen('home');
+          setScreen('diag_intro'); // onboarding flows straight into the diagnostic
         }}
       />
     );
@@ -91,8 +95,46 @@ export default function App() {
   // From here on we need a profile.
   if (!profile) return <Welcome onStart={() => setScreen('avatar')} />;
 
+  // ── Diagnostic ──────────────────────────────────────────────────────────────
+  if (screen === 'diag_intro') {
+    return (
+      <DiagnosticIntro
+        gender={profile.gender}
+        name={profile.displayName}
+        onStart={() => setScreen('diag')}
+      />
+    );
+  }
+  if (screen === 'diag') {
+    return (
+      <Diagnostic
+        profile={profile}
+        onDone={p => { setProfile(p); setScreen('diag_results'); }}
+      />
+    );
+  }
+  if (screen === 'diag_results' && profile.gapProfileJson) {
+    return (
+      <DiagnosticResults
+        gender={profile.gender}
+        gap={profile.gapProfileJson}
+        onDone={() => setScreen('home')}
+      />
+    );
+  }
+
   // ── App machine ─────────────────────────────────────────────────────────────
   if (screen === 'mode') {
+    // Practice before a diagnostic would run blind — route into it instead.
+    if (!profile.diagnosticCompletedAt) {
+      return (
+        <DiagnosticIntro
+          gender={profile.gender}
+          name={profile.displayName}
+          onStart={() => setScreen('diag')}
+        />
+      );
+    }
     return (
       <ModePicker
         gender={profile.gender}

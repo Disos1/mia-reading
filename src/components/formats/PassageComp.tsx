@@ -9,6 +9,7 @@ import {
   READ_FLOOR_MIN_MS,
   STEPWISE_REVEAL_MS,
 } from '../../constants/config';
+import { DEV_FAST, DEV_FAST_FLOOR_MS, DEV_FAST_REVEAL_MS } from '../../lib/dev';
 
 /** One answer submission, reported up so Session can build the PracticeAttempt. */
 export interface AttemptResult {
@@ -23,6 +24,8 @@ export interface AttemptResult {
 interface Props {
   item:       PracticeItem;
   gender:     Gender;
+  /** Read-floor inflation from the fast-inaccurate recipe (default 1). */
+  readFloorMultiplier?: number;
   /** Called on every answer submission (first attempt AND retry). */
   onAttempt:  (r: AttemptResult) => void;
   /** Called once when the item is finished (after correct or 2nd wrong). */
@@ -41,7 +44,7 @@ function shuffle<T>(arr: T[]): number[] {
   return idx;
 }
 
-export function PassageComp({ item, gender, onAttempt, onComplete }: Props) {
+export function PassageComp({ item, gender, readFloorMultiplier = 1, onAttempt, onComplete }: Props) {
   const g = { gender };
   const { passage, question } = item;
 
@@ -60,7 +63,10 @@ export function PassageComp({ item, gender, onAttempt, onComplete }: Props) {
   const readMsRef      = useRef<number>(0);
   const optionsShownAt = useRef<number>(0);
 
-  const floorMs = Math.max(READ_FLOOR_MIN_MS, passage.wordCount * READ_FLOOR_MS_PER_WORD);
+  const floorMs = DEV_FAST
+    ? DEV_FAST_FLOOR_MS
+    : Math.max(READ_FLOOR_MIN_MS, passage.wordCount * READ_FLOOR_MS_PER_WORD) * readFloorMultiplier;
+  const revealMs = DEV_FAST ? DEV_FAST_REVEAL_MS : STEPWISE_REVEAL_MS;
 
   // Read-time floor: enable "finished reading" only after a real dwell (protects
   // the fluency-rate measurement and blunts click-through).
@@ -78,9 +84,9 @@ export function PassageComp({ item, gender, onAttempt, onComplete }: Props) {
     const id = setTimeout(() => {
       optionsShownAt.current = Date.now();
       setPhase('options');
-    }, STEPWISE_REVEAL_MS);
+    }, revealMs);
     return () => clearTimeout(id);
-  }, [phase]);
+  }, [phase, revealMs]);
 
   function finishReading() {
     readMsRef.current = Date.now() - mountRef.current;

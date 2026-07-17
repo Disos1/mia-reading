@@ -52,6 +52,20 @@
   "home.achievements":     "🏆 ההישגים שלי",
   "home.signout":          "יציאה",
 
+  "diag_intro.title":      "נעים מאוד, {name}!",
+  "diag_intro.speech":     "לפני שנתחיל לקרוא יחד, יש לי כמה סיפורים קצרים ושאלות. אין תשובות טובות ורעות — פשוט עני מה שאת חושבת.",
+  "diag_intro.cta":        "קדימה 🚀",
+  "diag.progress":         "חידה {current} מתוך {total}",
+  "diag_results.title":    "כל הכבוד שסיימת!",
+  "diag_results.subtitle": "עכשיו אני יודעת מאיפה כדאי להתחיל. הנה מה שראיתי:",
+  "diag_results.strengths": "חוזקות:",
+  "diag_results.work_on":  "על אלה נעבוד יחד:",
+  "diag_results.all_clear": "לא מצאתי קשיים גדולים — נתחיל עם סיפורים מאתגרים יותר!",
+  "diag_results.cta":      "יאללה, קוראות! ←",
+
+  "scaffold.drop":         "בואי ננסה משהו קצת יותר קצר 🌱",
+  "scaffold.climb":        "מצוין! מוכנה לאתגר? 🧗",
+
   "mode_picker.title":     "איך בא לך לקרוא היום?",
   "mode_picker.subtitle":  "אפשר לבחור בכל פעם אחרת",
   "mode_picker.time.name": "מצב זמן",

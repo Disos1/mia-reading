@@ -38,6 +38,7 @@ import { masteredSkills, skillsInProgress } from './masteryTracker';
 import { eligiblePairs, type PassageQuestionPair } from './passages';
 import { skillHebrewKey, COMP_SKILLS } from '../constants/skills';
 import { SESSION_QUANTITY_ITEMS } from '../constants/config';
+import { NEUTRAL_RECIPES, type RecipeMods } from './errorSignatures';
 
 // ─── Item picking (single source of truth) ─────────────────────────────────────
 
@@ -157,14 +158,25 @@ export interface ComposeArgs {
   startNikud:       NikudState;
   recentPassages:   Set<string>;
   recentQuestions:  Set<string>;
+  /** Active error-signature recipes (resolveRecipes). Neutral when absent. */
+  recipes?:         RecipeMods;
   rng?:             () => number;
 }
 
 export function composeSession(args: ComposeArgs): SessionPlan {
   const rng = args.rng ?? Math.random;
+  const recipes = args.recipes ?? NEUTRAL_RECIPES;
   const focus = resolveFocus(args.masteryMap, args.gapProfile);
-  const startLevel = clamp(args.startLevel, focus.floor, 3);
-  const target = targetFor(args.mode);
+
+  // Recipe overrides (spec Part 4 composer recipes).
+  const blockedSkill = recipes.blockedSkillOverride ?? focus.blockedSkill;
+  const spacedSkills = recipes.prioritizeVocab
+    ? ['COMP_VOCAB' as SkillCode, ...focus.spacedSkills.filter(s => s !== 'COMP_VOCAB')]
+    : focus.spacedSkills;
+  const floor      = recipes.forceLevel ?? focus.floor;
+  const startLevel = recipes.forceLevel ?? clamp(args.startLevel, focus.floor, 3);
+  const nikud      = recipes.forceNikud ?? args.startNikud;
+  const target     = Math.max(6, Math.round(targetFor(args.mode) * recipes.targetMultiplier));
 
   const nWarm  = Math.max(2, Math.round(target * 0.15));
   const nBlock = Math.round(target * 0.20);
@@ -173,13 +185,13 @@ export function composeSession(args: ComposeArgs): SessionPlan {
 
   // Ordered slots: warmup → blocked → spaced → interleaved.
   const slots: BucketPlan[] = [];
-  for (let i = 0; i < nWarm; i++)  slots.push({ phase: 'warmup', level: focus.floor });
-  for (let i = 0; i < nBlock; i++) slots.push({ phase: 'blocked_practice', skill: focus.blockedSkill, level: startLevel });
-  for (let i = 0; i < nSpace; i++) slots.push({ phase: 'spaced_retrieval', skill: focus.spacedSkills[i % Math.max(1, focus.spacedSkills.length)], level: startLevel });
+  for (let i = 0; i < nWarm; i++)  slots.push({ phase: 'warmup', level: floor });
+  for (let i = 0; i < nBlock; i++) slots.push({ phase: 'blocked_practice', skill: blockedSkill, level: startLevel });
+  for (let i = 0; i < nSpace; i++) slots.push({ phase: 'spaced_retrieval', skill: spacedSkills[i % Math.max(1, spacedSkills.length)], level: startLevel });
   for (let i = 0; i < nInter; i++) {
     // Interleaved mixes levels a little for variety (spec: avoid same-format
     // streaks; here we vary level since Phase 1 is single-format).
-    const level = clamp(startLevel + (i % 3 === 2 ? 1 : 0), focus.floor, 3);
+    const level = clamp(startLevel + (i % 3 === 2 ? 1 : 0), floor, 3);
     slots.push({ phase: 'interleaved', level });
   }
 
@@ -189,11 +201,16 @@ export function composeSession(args: ComposeArgs): SessionPlan {
   const usedQuestions = new Set<string>(args.recentQuestions);
   const plannedItems: SessionPlanItem[] = [];
 
-  slots.forEach(slot => {
+  slots.forEach((slot, slotIdx) => {
+    // Nikud-dependent bridging: alternate interleaved items at partial nikud.
+    const slotNikud: NikudState =
+      recipes.partialNikudBridge && slot.phase === 'interleaved' && slotIdx % 2 === 0
+        ? 'partial'
+        : nikud;
     const item = pickItem({
       skill:            slot.skill,
       level:            slot.level,
-      nikud:            args.startNikud,
+      nikud:            slotNikud,
       excludePassages:  usedPassages,
       excludeQuestions: usedQuestions,
       rng,
@@ -210,13 +227,14 @@ export function composeSession(args: ComposeArgs): SessionPlan {
     mode:              args.mode,
     plannedItems,
     targetItems:       args.mode === 'open' ? null : target,
-    primarySkillCode:  focus.blockedSkill,
+    primarySkillCode:  blockedSkill,
     startedAt:         new Date().toISOString(),
     composerReasoning: [
       `mode: ${args.mode}, target: ${target}`,
       `buckets — warmup:${nWarm} blocked:${nBlock} spaced:${nSpace} interleaved:${nInter}`,
       `planned ${plannedItems.length} items`,
       ...focus.reasoning,
+      ...recipes.notes.map(n => `recipe: ${n}`),
     ],
   };
 }

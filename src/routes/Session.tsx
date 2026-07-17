@@ -21,12 +21,14 @@ import { tallyAttempts } from '../lib/tally';
 import {
   loadMasteryMap, saveMasteryMap,
   loadLedger, saveLedger,
-  upsertSessionRecord, appendAttempts,
+  upsertSessionRecord, appendAttempts, loadAttempts, loadSessionRecords,
   loadScaffoldMemory, saveScaffoldMemory,
 } from '../lib/sessionStore';
 import { syncPassageShown } from '../lib/sync';
 import { appendRecentPassageIds, appendRecentQuestionIds, loadRecentPassageIds, loadRecentQuestionIds } from '../lib/recentItems';
 import { bumpSessionsCompleted } from '../lib/profile';
+import { loadSignatures, saveSignatures, resolveRecipes, updateSignatures } from '../lib/errorSignatures';
+import type { ScaffoldMove } from '../lib/scaffold';
 
 interface Props {
   profile: Profile;
@@ -72,6 +74,10 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
     return initScaffold(mem?.level ?? floor, mem?.nikud ?? startNikud);
   })());
 
+  // Error-signature recipes shape this session (spec Part 4).
+  const signaturesRef = useRef(loadSignatures(profile.profileId));
+  const recipes = useMemo(() => resolveRecipes(signaturesRef.current), []);
+
   // Compose the plan once.
   const plan = useMemo(() => composeSession({
     sessionId,
@@ -83,13 +89,30 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
     startNikud,
     recentPassages:  loadRecentPassageIds(profile.profileId),
     recentQuestions: loadRecentQuestionIds(profile.profileId),
+    recipes,
   }), [sessionId]);
+
+  // Composer trace — visible in devtools; helps Dima (and us) audit sessions.
+  useEffect(() => {
+    console.info('[composer]', plan.composerReasoning.join(' | '));
+    console.info('[composer] items:', plan.plannedItems.map(p =>
+      `${p.sessionPhase}:${p.item.skillCode}@L${p.item.level}/${p.item.nikud}`).join(', '));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan]);
 
   const [items, setItems] = useState<RunItem[]>(
     plan.plannedItems.map(p => ({ item: p.item, phase: p.sessionPhase })),
   );
   const [index, setIndex] = useState(0);
   const [finished, setFinished] = useState(false);
+  // Scaffold banner ("something shorter" / "ready for a challenge") — shown
+  // briefly when the level moves (spec Part 3 scaffolding rules).
+  const [banner, setBanner] = useState<ScaffoldMove | null>(null);
+  useEffect(() => {
+    if (!banner) return;
+    const id = setTimeout(() => setBanner(null), 3500);
+    return () => clearTimeout(id);
+  }, [banner]);
 
   const total = plan.targetItems ?? items.length;
   const current = items[index];
@@ -200,6 +223,7 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
     // if the scaffold moved (aggressive climb / patient drop).
     const { state, move } = applyOutcome(scaffoldRef.current, summary.firstAttemptCorrect, floor);
     scaffoldRef.current = state;
+    if (move !== 'hold') setBanner(move);
 
     const nextIdx = index + 1;
     if (move !== 'hold' && nextIdx < items.length && items[nextIdx].item.level !== state.level) {
@@ -233,6 +257,16 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
     saveScaffoldMemory(profile.profileId, {
       reading: { level: scaffoldRef.current.level, nikud: scaffoldRef.current.nikud, struggleSessions: 0 },
     });
+    // Re-detect error signatures over the full history incl. this session
+    // (2×2 zone, fatigue, vocab breakdown, literal-vs-inference, nikud ratio).
+    const nextSignatures = updateSignatures({
+      prev:        signaturesRef.current,
+      allAttempts: loadAttempts(profile.profileId),
+      sessions:    loadSessionRecords(profile.profileId),
+      gap:         profile.gapProfileJson,
+    });
+    signaturesRef.current = nextSignatures;
+    saveSignatures(profile.profileId, nextSignatures);
     setRecord(record);
     setFinished(true);
   }
@@ -282,11 +316,26 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
         </div>
       </div>
 
+      {/* Scaffold move banner */}
+      {banner && (
+        <div className="w-full max-w-2xl mb-3 reveal-in">
+          <div
+            className="rounded-2xl px-4 py-2 text-center font-bold"
+            style={banner === 'climb'
+              ? { background: '#DCFCE7', color: '#166534' }
+              : { background: '#FEF3C7', color: '#92400E' }}
+          >
+            {banner === 'climb' ? t('scaffold.climb', g) : t('scaffold.drop', g)}
+          </div>
+        </div>
+      )}
+
       <div className="flex-1 w-full flex items-start justify-center">
         <PassageComp
           key={current.item.itemId}
           item={current.item}
           gender={gender}
+          readFloorMultiplier={recipes.readFloorMultiplier}
           onAttempt={r => handleAttempt(current, r)}
           onComplete={handleComplete}
         />
