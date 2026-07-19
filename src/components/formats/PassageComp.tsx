@@ -10,16 +10,11 @@ import {
   STEPWISE_REVEAL_MS,
 } from '../../constants/config';
 import { DEV_FAST, DEV_FAST_FLOOR_MS, DEV_FAST_REVEAL_MS } from '../../lib/dev';
+import { speak, stopSpeaking, ttsSupported } from '../../lib/tts';
+import type { FormatAttempt } from './shared';
 
 /** One answer submission, reported up so Session can build the PracticeAttempt. */
-export interface AttemptResult {
-  correct:      boolean;
-  firstAttempt: boolean;
-  usedHint:     boolean;
-  chosenOption: number;   // original option index
-  responseMs:   number;   // options-shown → tap
-  readMs:       number;   // passage dwell before "finished reading"
-}
+export type AttemptResult = FormatAttempt;
 
 interface Props {
   item:       PracticeItem;
@@ -76,6 +71,9 @@ export function PassageComp({ item, gender, readFloorMultiplier = 1, onAttempt, 
     const id = setTimeout(() => setCanFinish(true), floorMs);
     return () => clearTimeout(id);
   }, [item.itemId, floorMs]);
+
+  // Never let read-aloud audio bleed into the next item.
+  useEffect(() => () => stopSpeaking(), [item.itemId]);
 
   // Stepwise reveal: after "finished reading", show the question ALONE, then
   // fade the options in (forces covert retrieval before recognition — C4).
@@ -204,8 +202,19 @@ export function PassageComp({ item, gender, readFloorMultiplier = 1, onAttempt, 
           <div className="text-2xl font-bold" style={{ color: firstCorrect ? '#166534' : '#B45309' }}>
             {firstCorrect ? t('session.correct', g) : t('session.moving_on', g)}
           </div>
+          {/* Conditional read-aloud (spec Part 7): offered ONLY after a failed
+              comp probe — never up-front, so it's remediation, not avoidance. */}
+          {!firstCorrect && ttsSupported() && (
+            <button
+              onClick={() => speak(passage.textFullNikud)}
+              className="bg-white border-2 border-brand-sky rounded-2xl px-4 py-2 text-brand-navy
+                font-medium hover:scale-[1.02] transition-all"
+            >
+              🔊 {t('session.read_aloud', g)}
+            </button>
+          )}
           <BigButton
-            onClick={() => onComplete({ firstAttemptCorrect: firstCorrect, readMs: readMsRef.current })}
+            onClick={() => { stopSpeaking(); onComplete({ firstAttemptCorrect: firstCorrect, readMs: readMsRef.current }); }}
             color="#C4A7E7"
           >
             {t('session.next', g)}

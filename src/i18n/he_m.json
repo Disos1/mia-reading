@@ -31,5 +31,13 @@
   "diag_results.all_clear": "לא מצאתי קשיים גדולים — נתחיל עם סיפורים מאתגרים יותר!",
   "diag_results.cta":      "יאללה, קוראים! ←",
   "scaffold.drop":         "בוא ננסה משהו קצת יותר קצר 🌱",
-  "scaffold.climb":        "מצוין! מוכן לאתגר? 🧗"
+  "scaffold.climb":        "מצוין! מוכן לאתגר? 🧗",
+
+  "session.read_aloud":    "תרצה שאקרא לך את הקטע?",
+  "reread.banner":         "קוראים פעמיים — בוא נראה כמה השתפרת! ⏱️",
+  "reread.again_cta":      "קריאה שנייה — אתה מכיר את הסיפור!",
+  "reread.faster":         "היית מהיר ב-{sec} שניות! 🎉",
+  "ordering.instruction":  "לחץ על האירועים לפי הסדר הנכון",
+  "ordering.almost":       "כמעט! שני אירועים התחלפו — נסה שוב",
+  "flash.intro":           "תוכל לזהות מהר? ⚡"
 }

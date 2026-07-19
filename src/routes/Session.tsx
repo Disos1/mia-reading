@@ -12,7 +12,13 @@ import type {
   SessionRecord,
 } from '../types';
 import { t } from '../i18n/t';
-import { PassageComp, type AttemptResult } from '../components/formats/PassageComp';
+import { PassageComp } from '../components/formats/PassageComp';
+import { Reread } from '../components/formats/Reread';
+import { EventOrdering } from '../components/formats/EventOrdering';
+import { WordInContext } from '../components/formats/WordInContext';
+import { Flash } from '../components/formats/Flash';
+import type { FormatAttempt } from '../components/formats/shared';
+import { ItemFormat } from '../types';
 import { EndSession } from './EndSession';
 import { composeSession, pickItem } from '../lib/sessionComposer';
 import { applyOutcome, initScaffold } from '../lib/scaffold';
@@ -78,6 +84,24 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
   const signaturesRef = useRef(loadSignatures(profile.profileId));
   const recipes = useMemo(() => resolveRecipes(signaturesRef.current), []);
 
+  // Format eligibility (spec Part 5 caps): Reread max 4/week (1/session is
+  // structural in the composer); Flash only under maintenance signatures.
+  const { allowReread, maintenanceDrill } = useMemo(() => {
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const rereadSessions = new Set(
+      loadAttempts(profile.profileId)
+        .filter(a => a.itemFormat === ItemFormat.Reread && new Date(a.createdAt).getTime() >= weekAgo)
+        .map(a => a.sessionId),
+    );
+    const sigs = signaturesRef.current.signatures;
+    return {
+      allowReread: rereadSessions.size < 4,
+      maintenanceDrill:
+        sigs.ERR_LETTER_CONFUSE?.isActive === true ||
+        sigs.ERR_NIKUD_DEPENDENT?.isActive === true,
+    };
+  }, [profile.profileId]);
+
   // Compose the plan once.
   const plan = useMemo(() => composeSession({
     sessionId,
@@ -90,6 +114,8 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
     recentPassages:  loadRecentPassageIds(profile.profileId),
     recentQuestions: loadRecentQuestionIds(profile.profileId),
     recipes,
+    allowReread,
+    maintenanceDrill,
   }), [sessionId]);
 
   // Composer trace — visible in devtools; helps Dima (and us) audit sessions.
@@ -168,15 +194,16 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
     saveLedger(profile.profileId, ledgerRef.current);
   }
 
-  function handleAttempt(runItem: RunItem, r: AttemptResult) {
+  function handleAttempt(runItem: RunItem, r: FormatAttempt) {
     const attempt: PracticeAttempt = {
       id:            newId(),
       profileId:     profile.profileId,
       sessionId,
       itemId:        runItem.item.itemId,
       passageId:     runItem.item.passage.id,
-      questionId:    runItem.item.question.id,
-      skillCode:     runItem.item.skillCode,
+      // Multi-question formats (reread) override skill/question per probe.
+      questionId:    r.questionId ?? runItem.item.question.id,
+      skillCode:     r.skillCode  ?? runItem.item.skillCode,
       itemFormat:    runItem.item.format,
       sessionPhase:  runItem.phase,
       level:         runItem.item.level,
@@ -185,9 +212,10 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
       correct:       r.correct,
       firstAttempt:  r.firstAttempt,
       usedHint:      r.usedHint,
-      signatureHit:  null,
+      signatureHit:  r.signatureHit ?? null,
       responseMs:    r.responseMs,
       readMs:        r.readMs,
+      rereadPass:    r.rereadPass,
       sequenceNumber: seqRef.current++,
       createdAt:     new Date().toISOString(),
     };
@@ -226,7 +254,9 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
     if (move !== 'hold') setBanner(move);
 
     const nextIdx = index + 1;
-    if (move !== 'hold' && nextIdx < items.length && items[nextIdx].item.level !== state.level) {
+    if (move !== 'hold' && nextIdx < items.length &&
+        items[nextIdx].item.format === ItemFormat.PassageComp &&
+        items[nextIdx].item.level !== state.level) {
       const replacement = pickItem({
         skill:            items[nextIdx].phase === 'blocked_practice' ? plan.primarySkillCode : undefined,
         level:            state.level,
@@ -331,14 +361,23 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
       )}
 
       <div className="flex-1 w-full flex items-start justify-center">
-        <PassageComp
-          key={current.item.itemId}
-          item={current.item}
-          gender={gender}
-          readFloorMultiplier={recipes.readFloorMultiplier}
-          onAttempt={r => handleAttempt(current, r)}
-          onComplete={handleComplete}
-        />
+        {(() => {
+          const common = {
+            key:  current.item.itemId,
+            item: current.item,
+            gender,
+            readFloorMultiplier: recipes.readFloorMultiplier,
+            onAttempt:  (r: FormatAttempt) => handleAttempt(current, r),
+            onComplete: handleComplete,
+          };
+          switch (current.item.format) {
+            case ItemFormat.Reread:        return <Reread {...common} />;
+            case ItemFormat.EventOrdering: return <EventOrdering {...common} />;
+            case ItemFormat.WordInContext: return <WordInContext {...common} />;
+            case ItemFormat.Flash:         return <Flash {...common} />;
+            default:                       return <PassageComp {...common} />;
+          }
+        })()}
       </div>
     </div>
   );

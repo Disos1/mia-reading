@@ -35,10 +35,14 @@ import type {
 } from '../types';
 import { ItemFormat } from '../types';
 import { masteredSkills, skillsInProgress } from './masteryTracker';
-import { eligiblePairs, type PassageQuestionPair } from './passages';
+import { eligiblePairs, rereadCandidates, type PassageQuestionPair } from './passages';
 import { skillHebrewKey, COMP_SKILLS } from '../constants/skills';
 import { SESSION_QUANTITY_ITEMS } from '../constants/config';
 import { NEUTRAL_RECIPES, type RecipeMods } from './errorSignatures';
+import {
+  FLASH_BANK, FLASH_DURATION_MS, ORDERING_BANK, WIC_BANK,
+} from '../content/formatBank';
+import type { Passage } from '../types';
 
 // ─── Item picking (single source of truth) ─────────────────────────────────────
 
@@ -90,6 +94,120 @@ export function pickItem(args: PickArgs): PracticeItem | null {
     }
   }
   return null;
+}
+
+// ─── Format 2–5 item builders ─────────────────────────────────────────────────
+//
+// Each returns null when its bank is exhausted (exclusions); the composer then
+// falls back to a Format 1 pick, so a session never stalls on a format.
+
+/** Synthesise a Passage record for bank entries that aren't real passages. */
+function pseudoPassage(id: string, text: string, level: ReadingLevel): Passage {
+  return {
+    id, level, vocabTier: 'T2',
+    wordCount: text.trim().split(/\s+/).filter(Boolean).length,
+    textFullNikud: text, textPartialNikud: null, textNoNikud: null,
+    characterNames: [], genre: 'format', picture: null,
+  };
+}
+
+function buildRereadItem(args: {
+  nikud: NikudState;
+  excludePassages: Set<string>; excludeQuestions: Set<string>; rng: () => number;
+}): PracticeItem | null {
+  const candidates = rereadCandidates(args);
+  if (candidates.length === 0) return null;
+  const c = candidates[Math.floor(args.rng() * candidates.length)];
+  return {
+    itemId:         `${ItemFormat.Reread}_${c.passage.id}_${c.q1.id}`,
+    format:         ItemFormat.Reread,
+    skillCode:      'FLU_REREAD_GAIN',
+    skillHebrewKey: skillHebrewKey('FLU_REREAD_GAIN'),
+    passage:        c.passage,
+    question:       c.q1,
+    question2:      c.q2,
+    level:          c.passage.level,
+    nikud:          args.nikud,
+  };
+}
+
+function buildOrderingItem(args: {
+  level: ReadingLevel; excludeQuestions: Set<string>; rng: () => number;
+}): PracticeItem | null {
+  const pool = ORDERING_BANK.filter(o => !args.excludeQuestions.has(o.id));
+  if (pool.length === 0) return null;
+  const near = pool.filter(o => o.level === args.level);
+  const o = (near.length > 0 ? near : pool)[Math.floor(args.rng() * (near.length > 0 ? near : pool).length)];
+  const passage = pseudoPassage(`p_${o.id}`, o.story, o.level);
+  return {
+    itemId:         `${ItemFormat.EventOrdering}_${o.id}`,
+    format:         ItemFormat.EventOrdering,
+    skillCode:      o.skill,
+    skillHebrewKey: skillHebrewKey(o.skill),
+    passage,
+    // Pseudo-question so attempts have a stable question id; correctOption unused.
+    question: {
+      id: o.id, passageId: passage.id, skillCode: o.skill,
+      questionText: '', options: o.events, correctOption: 0,
+      hintText: null, questionLevel: o.level,
+    },
+    level:    o.level,
+    nikud:    'full',   // stories render full nikud in V1
+    ordering: o.events,
+  };
+}
+
+function buildWICItem(args: {
+  level: ReadingLevel; excludeQuestions: Set<string>; rng: () => number;
+}): PracticeItem | null {
+  const pool = WIC_BANK.filter(w => !args.excludeQuestions.has(w.id));
+  if (pool.length === 0) return null;
+  const near = pool.filter(w => w.level === args.level);
+  const w = (near.length > 0 ? near : pool)[Math.floor(args.rng() * (near.length > 0 ? near : pool).length)];
+  const passage = pseudoPassage(`p_${w.id}`, w.sentence, w.level);
+  return {
+    itemId:         `${ItemFormat.WordInContext}_${w.id}`,
+    format:         ItemFormat.WordInContext,
+    skillCode:      w.skill,
+    skillHebrewKey: skillHebrewKey(w.skill),
+    passage,
+    question: {
+      id: w.id, passageId: passage.id, skillCode: w.skill,
+      questionText: '', options: w.options, correctOption: 0,
+      hintText: null, questionLevel: w.level,
+    },
+    level:      w.level,
+    nikud:      'full',   // vocab probe — decoding load stays out of the way
+    targetWord: w.targetWord,
+  };
+}
+
+function buildFlashItem(args: {
+  excludeQuestions: Set<string>; rng: () => number;
+}): PracticeItem | null {
+  const pool = FLASH_BANK.filter(f => !args.excludeQuestions.has(f.id));
+  if (pool.length === 0) return null;
+  const f = pool[Math.floor(args.rng() * pool.length)];
+  const passage = pseudoPassage(`p_${f.id}`, f.word, 1);
+  return {
+    itemId:         `${ItemFormat.Flash}_${f.id}`,
+    format:         ItemFormat.Flash,
+    skillCode:      f.skill,
+    skillHebrewKey: skillHebrewKey(f.skill),
+    passage,
+    question: {
+      id: f.id, passageId: passage.id, skillCode: f.skill,
+      questionText: '', options: [f.word, ...f.distractors.map(d => d.text)],
+      correctOption: 0, hintText: null, questionLevel: 1,
+    },
+    level: 1,
+    nikud: 'none',   // flash words are unpointed by design
+    flash: {
+      word: f.word,
+      durationMs: FLASH_DURATION_MS[f.tier],
+      options: [{ text: f.word, pair: null }, ...f.distractors],
+    },
+  };
 }
 
 // ─── Focus-skill resolution (with the mastered-set cross-check) ─────────────────
@@ -160,6 +278,12 @@ export interface ComposeArgs {
   recentQuestions:  Set<string>;
   /** Active error-signature recipes (resolveRecipes). Neutral when absent. */
   recipes?:         RecipeMods;
+  /** Reread Challenge eligibility (1/session is structural; the 4/week cap is
+   *  computed by the caller from stored attempts). */
+  allowReread?:     boolean;
+  /** Maintenance signatures active (letter-confuse / nikud-dependent) →
+   *  Format 5 joins the mix; otherwise its slot falls back to Format 4/1. */
+  maintenanceDrill?: boolean;
   rng?:             () => number;
 }
 
@@ -195,11 +319,32 @@ export function composeSession(args: ComposeArgs): SessionPlan {
     slots.push({ phase: 'interleaved', level });
   }
 
+  // Format assignment (spec Part 5 mix, single-cap aware):
+  //   warmup: F1 short + one F4 · interleaved: one F2 (when allowed), one F3,
+  //   one F5 (maintenance only, else F4), rest F1. Blocked/spaced stay F1 —
+  //   comp skills need the passage+probe workhorse.
+  let warmupSeen = 0, interSeen = 0;
+  const formatFor = (slot: BucketPlan): ItemFormat => {
+    if (slot.phase === 'warmup') {
+      warmupSeen++;
+      return warmupSeen === 2 ? ItemFormat.WordInContext : ItemFormat.PassageComp;
+    }
+    if (slot.phase === 'interleaved') {
+      interSeen++;
+      if (interSeen === 1 && (args.allowReread ?? true)) return ItemFormat.Reread;
+      if (interSeen === 2) return ItemFormat.EventOrdering;
+      if (interSeen === 3) return args.maintenanceDrill ? ItemFormat.Flash : ItemFormat.WordInContext;
+      return ItemFormat.PassageComp;
+    }
+    return ItemFormat.PassageComp;
+  };
+
   // Concretise each slot, tracking within-session exclusions so a session never
   // repeats a passage or question internally.
   const usedPassages = new Set<string>(args.recentPassages);
   const usedQuestions = new Set<string>(args.recentQuestions);
   const plannedItems: SessionPlanItem[] = [];
+  let rereadPlaced = false;
 
   slots.forEach((slot, slotIdx) => {
     // Nikud-dependent bridging: alternate interleaved items at partial nikud.
@@ -207,7 +352,30 @@ export function composeSession(args: ComposeArgs): SessionPlan {
       recipes.partialNikudBridge && slot.phase === 'interleaved' && slotIdx % 2 === 0
         ? 'partial'
         : nikud;
-    const item = pickItem({
+
+    let format = formatFor(slot);
+    if (format === ItemFormat.Reread && rereadPlaced) format = ItemFormat.PassageComp;
+
+    let item: PracticeItem | null = null;
+    switch (format) {
+      case ItemFormat.Reread:
+        item = buildRereadItem({ nikud: slotNikud, excludePassages: usedPassages, excludeQuestions: usedQuestions, rng });
+        if (item) rereadPlaced = true;
+        break;
+      case ItemFormat.EventOrdering:
+        item = buildOrderingItem({ level: slot.level, excludeQuestions: usedQuestions, rng });
+        break;
+      case ItemFormat.WordInContext:
+        item = buildWICItem({ level: slot.level, excludeQuestions: usedQuestions, rng });
+        break;
+      case ItemFormat.Flash:
+        item = buildFlashItem({ excludeQuestions: usedQuestions, rng });
+        break;
+      default:
+        break;
+    }
+    // Fall back to the Format 1 workhorse when the format's bank ran dry.
+    item ??= pickItem({
       skill:            slot.skill,
       level:            slot.level,
       nikud:            slotNikud,
@@ -215,8 +383,10 @@ export function composeSession(args: ComposeArgs): SessionPlan {
       excludeQuestions: usedQuestions,
       rng,
     });
-    if (!item) return; // bank exhausted — plan is shorter, session still valid
+    if (!item) return; // every bank exhausted — plan is shorter, session still valid
+
     usedQuestions.add(item.question.id);
+    if (item.question2) usedQuestions.add(item.question2.id);
     usedPassages.add(item.passage.id);
     plannedItems.push({ item, sessionPhase: slot.phase, position: plannedItems.length });
   });

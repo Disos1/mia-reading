@@ -15,10 +15,13 @@
  *   ERR_VOCAB_BREAKDOWN       — T1-passage accuracy exceeds T2/T3 accuracy by
  *                               >25% (≥5 samples each).
  *   ERR_LITERAL_OK_INFERENCE_FAIL — literal ≥80% while inference+character ≤50%.
+ *   ERR_LETTER_CONFUSE        — ≥3 confusable-distractor taps in the last 30
+ *                               Flash (Format 5) first attempts; keeps Format 5
+ *                               in the session mix (maintenance drill).
  *
- * Not detectable yet (honestly stubbed inactive, revisit in Phase 3):
- *   ERR_NO_REREAD     — needs look-back telemetry the UI doesn't emit.
- *   ERR_LETTER_CONFUSE — needs Format 5 confusable-pair distractor metadata.
+ * Permanently unmeasurable by design (not a stub):
+ *   ERR_NO_REREAD — the passage stays visible during questions, so "looking
+ *   back" is free and uncountable; that's the comprehension strategy we WANT.
  *
  * Recipes: resolveRecipes() flattens the active set into concrete composer
  * mods. Conflict rule (spec): FATIGUE wins — kid wellbeing first.
@@ -109,6 +112,8 @@ const VOCAB_GAP          = 0.25;
 const VOCAB_MIN_SAMPLES  = 5;
 const NIKUD_RATIO        = 1.5;
 const NIKUD_MIN_SAMPLES  = 5;
+const LETTER_MIN_SAMPLES = 5;   // flash first attempts before judging
+const LETTER_HIT_THRESHOLD = 3; // confusable-wrong taps in the last 30
 
 function rateOf(a: PracticeAttempt): number | null {
   if (!a.readMs || a.readMs <= 0) return null;
@@ -255,7 +260,20 @@ export function updateSignatures(args: {
     }
   }
 
-  // ERR_NO_REREAD / ERR_LETTER_CONFUSE: telemetry arrives with Phase 3 formats.
+  // ── ERR_LETTER_CONFUSE — confusable-distractor taps in Flash (Format 5) ──
+  {
+    const flashFirsts = args.allAttempts
+      .filter(a => a.firstAttempt && a.itemFormat === 5)
+      .slice(-30);
+    if (flashFirsts.length >= LETTER_MIN_SAMPLES) {
+      const hits = flashFirsts.filter(a => a.signatureHit === 'ERR_LETTER_CONFUSE').length;
+      setSig(sigs, 'ERR_LETTER_CONFUSE', hits >= LETTER_HIT_THRESHOLD, flashFirsts.length, now);
+    }
+  }
+
+  // ERR_NO_REREAD stays unmeasurable by design: the passage remains visible
+  // during every question (looking back is free — that's a comprehension
+  // strategy we encourage, not an event we can count).
 
   return { zone, pendingZone, pendingCount, signatures: sigs, updatedAt: now };
 }

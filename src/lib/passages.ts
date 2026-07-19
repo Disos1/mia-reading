@@ -70,3 +70,25 @@ export function eligiblePairs(opts: PickOpts): PassageQuestionPair[] {
 export function availableLevels(): ReadingLevel[] {
   return Array.from(new Set(ALL_PASSAGES.map(p => p.level))).sort() as ReadingLevel[];
 }
+
+/** Reread-challenge candidates (Format 2, level 2–3 only): passages with at
+ *  least TWO unseen questions, so each pass gets its own probe. */
+export interface RereadCandidate {
+  passage: Passage;
+  q1: PassageQuestion;
+  q2: PassageQuestion;
+}
+
+export function rereadCandidates(opts: {
+  excludePassages: Set<string>;
+  excludeQuestions: Set<string>;
+}): RereadCandidate[] {
+  const out: RereadCandidate[] = [];
+  for (const p of ALL_PASSAGES) {
+    if (p.level < 2) continue;
+    if (opts.excludePassages.has(p.id)) continue;
+    const qs = (QUESTIONS_BY_PASSAGE[p.id] ?? []).filter(q => !opts.excludeQuestions.has(q.id));
+    if (qs.length >= 2) out.push({ passage: p, q1: qs[0], q2: qs[1] });
+  }
+  return out;
+}

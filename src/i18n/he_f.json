@@ -92,6 +92,27 @@
 
   "hint.generic":          "קראי שוב את הקטע לאט — התשובה מסתתרת שם.",
 
+  "session.read_aloud":    "תרצי שאקרא לך את הקטע?",
+
+  "reread.banner":         "קוראים פעמיים — בואי נראה כמה השתפרת! ⏱️",
+  "reread.first_time":     "פעם ראשונה: {sec} שניות",
+  "reread.again_button":   "עוד פעם — מהר יותר! 🚀",
+  "reread.again_cta":      "קריאה שנייה — את מכירה את הסיפור!",
+  "reread.faster":         "היית מהירה ב-{sec} שניות! 🎉",
+  "reread.no_gain":        "קראת שוב יפה! ההבנה הכי חשובה 🌟",
+
+  "ordering.instruction":  "לחצי על האירועים לפי הסדר הנכון",
+  "ordering.submit":       "זה הסדר! ✓",
+  "ordering.almost":       "כמעט! שני אירועים התחלפו — נסי שוב",
+  "ordering.correct_order": "הנה הסדר הנכון:",
+
+  "wic.question":          "מה הפירוש של המילה המסומנת?",
+  "wic.hint_crossout":     "מחקתי תשובה אחת שבטוח לא נכונה",
+
+  "flash.intro":           "תוכלי לזהות מהר? ⚡",
+  "flash.question":        "איזו מילה ראית?",
+  "flash.hint":            "כמעט! המילה שראית:",
+
   "end_session.title":     "מצוין, {name}! 🎉",
   "end_session.summary":   "{stories} סיפורים · {words} מילים",
   "end_session.stars_added": "{count} כוכבים נוספו",

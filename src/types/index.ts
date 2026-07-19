@@ -172,8 +172,25 @@ export const ItemFormat = {
 } as const;
 export type ItemFormat = typeof ItemFormat[keyof typeof ItemFormat];
 
-/** One practice item. Phase 1 builds Format 1 only; the shape carries enough
- *  for all five so later formats are additive, not a refactor. */
+/** The visually-confusable Hebrew letter pairs (spec Part 4, ERR_LETTER_CONFUSE). */
+export type ConfusablePair = 'ב/כ' | 'ר/ד' | 'ה/ח' | 'ס/ם' | 'ו/י' | 'ת/ח' | 'ז/ן';
+
+/** One answer option in a Flash item. `pair` names the confusable letter pair
+ *  the distractor exploits (null = plain filler, wrong but not confusable). */
+export interface FlashOption {
+  text: string;
+  pair: ConfusablePair | null;
+}
+
+/** Format 5 payload: the word flashes for `durationMs`, then options appear. */
+export interface FlashSpec {
+  word:       string;        // shown unpointed — recognition, not decoding
+  durationMs: number;        // 1500 T1 · 1000 T2 · 600 T3 (spec Part 5)
+  options:    FlashOption[]; // options[0] is the correct word
+}
+
+/** One practice item. The base shape (passage + question) serves Format 1;
+ *  the optional payloads below carry the other formats' extras. */
 export interface PracticeItem {
   itemId:        string;
   format:        ItemFormat;
@@ -183,6 +200,14 @@ export interface PracticeItem {
   question:      PassageQuestion;
   level:         ReadingLevel;
   nikud:         NikudState;
+  /** Format 2: the second pass's comp probe (question = pass 1's probe). */
+  question2?:    PassageQuestion;
+  /** Format 3: event-card texts in CORRECT order (renderer shuffles). */
+  ordering?:     string[];
+  /** Format 4: the word visually highlighted inside the sentence. */
+  targetWord?:   string;
+  /** Format 5: flash payload (word, duration, confusable-tagged options). */
+  flash?:        FlashSpec;
 }
 
 export interface SessionPlanItem {
@@ -233,6 +258,9 @@ export interface PracticeAttempt {
   /** Time spent on the passage before pressing "סיימתי לקרוא", ms. Feeds
    *  silent reading rate (wpm). */
   readMs:         number;
+  /** Format 2 only: which pass this probe belongs to. Reread gain is derived
+   *  from the two passes' readMs on the same item. */
+  rereadPass?:    1 | 2;
   sequenceNumber: number;
   createdAt:      string;
 }
