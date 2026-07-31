@@ -47,6 +47,13 @@ export default defineConfig({
         // no network at all. Google Fonts are cached at runtime below.
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         navigateFallback: '/mia-reading/index.html',
+        // Take over immediately and bin the previous build's precache. Without
+        // this a deploy can keep serving the old bundle from cache — observed
+        // on the first live deploy, and the same stale-content class of bug the
+        // math app shipped once.
+        skipWaiting:  true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\//,
