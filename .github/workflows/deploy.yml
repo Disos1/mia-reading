@@ -24,11 +24,15 @@ jobs:
 
       - run: npm ci
 
+      # Built WITHOUT Supabase credentials on purpose. The app is offline-first:
+      # with no VITE_SUPABASE_URL it skips the auth gate entirely and stores
+      # everything on the device, which is how Mia uses it today. The old
+      # `mia-learning` project was deleted (its host no longer resolves), so
+      # injecting those secrets would put an un-passable sign-in screen in front
+      # of her. When sync arrives it belongs to the mia-math project — see
+      # ENV_NOTE.md — and this step gets its env block back with the new values.
       - name: Build
         run: npm run build
-        env:
-          VITE_SUPABASE_URL:             ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
 
       - name: Deploy to gh-pages branch
         uses: peaceiris/actions-gh-pages@v4
