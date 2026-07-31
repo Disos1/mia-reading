@@ -32,6 +32,8 @@ describe('toNoNikud — כתיב מלא re-spelling', () => {
     ['עַגְבָנִיּוֹת',   'עגבניות', 'hiriq before a mater yod adds nothing'],
     ['שִׁנַּיִם',      'שיניים',  'the dual ־ַיִם doubles the yod'],
     ['יָדַיִם',       'ידיים',   'the dual ־ַיִם doubles the yod'],
+    ['שָׁמַיִם',      'שמיים',   'שמיים follows the dual rule (Dima, July 2026)'],
+    ['מַיִם',        'מים',     'מים is the exception that keeps a single yod'],
     ['סֵפֶר',        'ספר',     'tsere/segol add nothing'],
     ['יֶלֶד',        'ילד',     'segol adds nothing; initial yod stays single'],
     ['תִּקְוָה',       'תקווה',   'consonantal vav doubles word-medially'],

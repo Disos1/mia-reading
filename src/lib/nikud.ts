@@ -18,17 +18,19 @@
  *   • holam male (holam on a vav)   → keep the ו (גָּדוֹל → גדול)
  *   • qubuts                        → insert ו   (שֻׁלְחָן → שולחן)
  *   • shuruk (vav + dagesh alone)   → keep the ו (סִפּוּר → סיפור)
- *   • hiriq                         → insert י, UNLESS the syllable is closed
- *                                     (next consonant carries a shva) or a
- *                                     mater yod already follows
- *                                     (צִפּוֹר → ציפור, but מִשְׁפָּחָה → משפחה)
- *   • consonantal vav, word-medial  → double it  (תִּקְוָה → תקווה)
+ *   • hiriq                         → insert י, UNLESS a yod already stands
+ *                                     there, the syllable is closed (plain
+ *                                     shva, bare word-final consonant, silent
+ *                                     alef), or it is the hif'il/hitpa'el הִ־
+ *                                     prefix (צִפּוֹר → ציפור, מִשְׁפָּחָה → משפחה,
+ *                                     הִגִּיעָה → הגיעה, but קִבְּלָה → קיבלה)
+ *   • consonantal vav, word-medial  → double it  (תִּקְוָה → תקווה, not אַחֲרָיו)
+ *   • the dual ־ַיִם                 → double the yod (שִׁנַּיִם → שיניים)
  *   • tsere / segol / patah / qamats → no insertion (סֵפֶר → ספר)
  *
- * Deliberately NOT implemented: doubling of consonantal yod. The Academy's rule
- * has too many lexical exceptions to guess safely (בִּנְיָן → בניין but הָיָה →
- * היה). Single yod is emitted; a passage whose unpointed form needs יי sets
- * `textNoNikud` explicitly.
+ * Consonantal-yod doubling OUTSIDE the dual is lexical, not phonological
+ * (בִּנְיָן → בניין but הָיָה → היה), so it lives in WORD_EXCEPTIONS rather than
+ * in a rule.
  *
  * ESCAPE HATCH: every rule here is a default. `Passage.textNoNikud` (and
  * `textPartialNikud`) override the derivation whenever a word doesn't follow it.
@@ -46,6 +48,10 @@ const SHVA        = 'ְ';
 const HATAF_SEGOL = 'ֱ';
 const HATAF_QAMATS= 'ֳ';
 const HIRIQ       = 'ִ';
+const TSERE       = 'ֵ';
+const SEGOL       = 'ֶ';
+const PATAH       = 'ַ';
+const QAMATS      = 'ָ';
 const HOLAM       = 'ֹ';
 const HOLAM_VAV   = 'ֺ';   // holam haser for vav (rare)
 const QUBUTS      = 'ֻ';
@@ -121,16 +127,13 @@ export function toNoNikud(fullNikud: string): string {
 }
 
 /**
- * Words whose unpointed spelling the rules can't derive — almost all of them
- * the doubled-yod class the Academy governs lexically (חִיְּכָה → חייכה, but
- * הָיָה → היה). Small on purpose: add a word here only after checking the
- * standard spelling, and prefer a passage-level `textNoNikud` override for
- * one-offs. Keyed by the pointed form exactly as authored.
- */
-/**
+ * Words whose unpointed spelling the rules can't derive. Small on purpose: add
+ * one only after checking the standard spelling, and prefer a passage-level
+ * `textNoNikud` override for a true one-off.
+ *
  * Keys are the NAIVELY-stripped form (points removed, no re-spelling); values
- * are the correct כתיב מלא. Keying this way makes the lookup insensitive to
- * the dagesh a prefix induces (הַשָּׁמַיִם and שָׁמַיִם both reduce to שמים).
+ * are the correct כתיב מלא. Keying this way makes the lookup insensitive to the
+ * dagesh a prefix induces (הַסִּפְרִיָּה and סִפְרִיָּה both reduce to ספריה).
  */
 const WORD_EXCEPTIONS: Record<string, string> = {
   // Doubled consonantal yod — governed lexically, not phonologically.
@@ -158,24 +161,41 @@ const WORD_EXCEPTIONS: Record<string, string> = {
   'ממנה':   'ממנה',
   'מלפני':  'מלפני',
   'מקביות': 'מקוביות',
-  // Names and high-frequency duals written with a single yod.
+  // Names, and the one dual Dima confirmed keeps a single yod. שמיים follows
+  // the regular dual rule (like שיניים / ידיים) — his call, July 2026.
   'דוד':    'דוד',
   'לוי':    'לוי',
   'טליה':   'טליה',
   'מים':    'מים',
-  'שמים':   'שמים',
 };
 
-/** Prefix letters that can attach in front of a word (ו,ה,ב,כ,ל,מ,ש). */
+/** Letters that can attach as a prefix (ו,ה,ב,כ,ל,מ,ש). */
 const PREFIX_LETTERS = new Set(['ו', 'ה', 'ב', 'כ', 'ל', 'מ', 'ש']);
 
 /**
+ * Is this cluster really an attached prefix, rather than the word's own first
+ * letter? The letter alone is not enough — the ש of שָׁמַיִם looks exactly like
+ * the relativizer שֶׁ, and stripping it would find מים underneath and rebuild
+ * the wrong word. The vowel is the tell:
+ *   • shva            — בְּ, לְ, וְ …
+ *   • tsere           — the compensated מֵ (from מִן, which doesn't geminate)
+ *   • patah/segol/qamats ONLY when the next letter is geminated by the prefix
+ *     (הַ + dagesh, שֶׁ + dagesh, בַּ + dagesh)
+ */
+function isPrefixCluster(c: Cluster, next: Cluster | undefined): boolean {
+  if (!PREFIX_LETTERS.has(c.base)) return false;
+  if (has(c, SHVA) || has(c, TSERE)) return true;
+  const shortVowel = has(c, PATAH) || has(c, SEGOL) || has(c, QAMATS);
+  return shortVowel && !!next && has(next, DAGESH);
+}
+
+/**
  * Look a word up in the exception table, allowing up to three attached
- * prefixes (בְּמַיִם → ב + מים, כְּשֶׁסִּיְּמָה → כש + סיימה).
+ * prefixes (בְּמַיִם → ב + מים, מֵהַסִּפְרִיָּה → מה + ספרייה).
  */
 function lookupException(word: Cluster[]): string | null {
   for (let cut = 0; cut <= Math.min(3, word.length - 1); cut++) {
-    if (cut > 0 && !PREFIX_LETTERS.has(word[cut - 1].base)) break;
+    if (cut > 0 && !isPrefixCluster(word[cut - 1], word[cut])) break;
     const stem = word.slice(cut).map(c => c.base).join('');
     const hit = WORD_EXCEPTIONS[stem];
     if (hit) return word.slice(0, cut).map(c => c.base).join('') + hit;
@@ -213,7 +233,7 @@ function respellWord(word: Cluster[]): string {
     const isDualYod =
       c.base === YOD && has(c, HIRIQ) &&
       next && next.base === 'ם' && i + 1 === word.length - 1 &&
-      prev && has(prev, 'ַ');
+      prev && has(prev, PATAH);
     if (isDualYod) { out += YOD + YOD; continue; }
 
     out += c.base;
