@@ -5,5 +5,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   base:   '/mia-reading/',
-  server: { host: true },
+  // Honour an assigned PORT so the dev server can coexist with other projects
+  // already holding 5173; falls back to the Vite default when unset.
+  server: { host: true, port: Number(process.env.PORT) || 5173 },
 })

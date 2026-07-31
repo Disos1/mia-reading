@@ -17,6 +17,8 @@ import { Reread } from '../components/formats/Reread';
 import { EventOrdering } from '../components/formats/EventOrdering';
 import { WordInContext } from '../components/formats/WordInContext';
 import { Flash } from '../components/formats/Flash';
+import { Ambiguity } from '../components/formats/Ambiguity';
+import { WorkedExample } from '../components/formats/WorkedExample';
 import type { FormatAttempt } from '../components/formats/shared';
 import { ItemFormat } from '../types';
 import { EndSession } from './EndSession';
@@ -46,6 +48,8 @@ interface Props {
 interface RunItem {
   item:  PracticeItem;
   phase: SessionPhase;
+  /** Teaching slot — walked through, never scored (build plan H1). */
+  isWorkedExample?: boolean;
 }
 
 function newId(): string {
@@ -127,7 +131,7 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
   }, [plan]);
 
   const [items, setItems] = useState<RunItem[]>(
-    plan.plannedItems.map(p => ({ item: p.item, phase: p.sessionPhase })),
+    plan.plannedItems.map(p => ({ item: p.item, phase: p.sessionPhase, isWorkedExample: p.isWorkedExample })),
   );
   const [index, setIndex] = useState(0);
   const [finished, setFinished] = useState(false);
@@ -265,7 +269,7 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
         excludeQuestions: seenQuestionsRef.current,
       });
       if (replacement) {
-        setItems(prev => prev.map((it, i) => (i === nextIdx ? { item: replacement, phase: it.phase } : it)));
+        setItems(prev => prev.map((it, i) => (i === nextIdx ? { ...it, item: replacement } : it)));
       }
     }
 
@@ -370,7 +374,18 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
             onAttempt:  (r: FormatAttempt) => handleAttempt(current, r),
             onComplete: handleComplete,
           };
+          if (current.isWorkedExample) {
+            return (
+              <WorkedExample
+                key={current.item.itemId}
+                item={current.item}
+                gender={gender}
+                onComplete={() => handleComplete({ firstAttemptCorrect: true })}
+              />
+            );
+          }
           switch (current.item.format) {
+            case ItemFormat.Ambiguity:     return <Ambiguity {...common} />;
             case ItemFormat.Reread:        return <Reread {...common} />;
             case ItemFormat.EventOrdering: return <EventOrdering {...common} />;
             case ItemFormat.WordInContext: return <WordInContext {...common} />;

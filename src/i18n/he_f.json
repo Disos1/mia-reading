@@ -109,6 +109,17 @@
   "wic.question":          "מה הפירוש של המילה המסומנת?",
   "wic.hint_crossout":     "מחקתי תשובה אחת שבטוח לא נכונה",
 
+  "explain.title":         "למה זו התשובה?",
+
+  "worked.banner":         "בואי נפתור אחת יחד 👩‍🏫",
+  "worked.strategy_title": "איך פותרים שאלה כזאת:",
+  "worked.answer_title":   "התשובה הנכונה:",
+  "worked.cta":            "הבנתי — תורי! ✨",
+
+  "ambiguity.intro":       "אותה מילה — כמה קריאות ⚡",
+  "ambiguity.question":    "איך קוראים את המילה המסומנת כאן?",
+  "ambiguity.hint":        "קראי את כל המשפט — על מה מדברים?",
+
   "flash.intro":           "תוכלי לזהות מהר? ⚡",
   "flash.question":        "איזו מילה ראית?",
   "flash.hint":            "כמעט! המילה שראית:",

@@ -146,6 +146,13 @@ export interface PassageQuestion {
   options:      string[];
   correctOption: number;   // index into options
   hintText:     string | null;
+  /**
+   * WHY the correct answer is correct, shown after any miss. For comprehension
+   * this is the actual lesson — flashing a green answer with no reasoning
+   * teaches nothing (build plan H1). Required in practice; the content test
+   * asserts every authored question has one.
+   */
+  explanation:  string | null;
   questionLevel: ReadingLevel;
 }
 
@@ -169,6 +176,7 @@ export const ItemFormat = {
   EventOrdering: 3, // Format 3 — סדר אירועים
   WordInContext: 4, // Format 4 — מילה בהקשר
   Flash:         5, // Format 5 — בזק
+  Ambiguity:     6, // Format 6 — מה המילה אומרת כאן? (unpointed homographs)
 } as const;
 export type ItemFormat = typeof ItemFormat[keyof typeof ItemFormat];
 
@@ -208,6 +216,21 @@ export interface PracticeItem {
   targetWord?:   string;
   /** Format 5: flash payload (word, duration, confusable-tagged options). */
   flash?:        FlashSpec;
+  /** Format 6: the unpointed homograph whose meaning the sentence decides. */
+  ambiguity?:    AmbiguitySpec;
+}
+
+/**
+ * Format 6 payload. The same unpointed spelling can be several words (ספר =
+ * sefer / safar / sapar); only the sentence decides which. Resolving that is
+ * the actual skill of reading unpointed Hebrew, and no other format trains it
+ * (build plan H-U2).
+ */
+export interface AmbiguitySpec {
+  /** The homograph as it appears unpointed in the sentence. */
+  word:       string;
+  /** The reading that fits THIS sentence, pointed (shown in the answer). */
+  pointedForm: string;
 }
 
 export interface SessionPlanItem {
@@ -216,6 +239,13 @@ export interface SessionPlanItem {
   position:     number;          // 0-indexed
   /** 7/30-day retention probe: first-attempt outcome feeds probe logic. */
   isRetentionProbe?: boolean;
+  /**
+   * Teaching slot: walked through with the answer shown, never answered or
+   * scored. Leads a blocked-practice run so the strategy is modelled before
+   * she is asked to use it (gradual release — build plan H1). Produces no
+   * PracticeAttempt, so it stays out of tally, mastery and combo by design.
+   */
+  isWorkedExample?:  boolean;
 }
 
 export interface SessionPlan {

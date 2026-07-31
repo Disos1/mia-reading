@@ -39,5 +39,10 @@
   "reread.faster":         "היית מהיר ב-{sec} שניות! 🎉",
   "ordering.instruction":  "לחץ על האירועים לפי הסדר הנכון",
   "ordering.almost":       "כמעט! שני אירועים התחלפו — נסה שוב",
-  "flash.intro":           "תוכל לזהות מהר? ⚡"
+  "flash.intro":           "תוכל לזהות מהר? ⚡",
+
+  "worked.banner":         "בוא נפתור אחת יחד 👨‍🏫",
+  "worked.cta":            "הבנתי — תורי! ✨",
+  "ambiguity.question":    "איך קוראים את המילה המסומנת כאן?",
+  "ambiguity.hint":        "קרא את כל המשפט — על מה מדברים?"
 }

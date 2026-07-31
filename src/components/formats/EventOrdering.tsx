@@ -3,6 +3,7 @@ import { t } from '../../i18n/t';
 import { PassageText } from '../primitives/PassageText';
 import { BidiText } from '../primitives/BidiText';
 import { BigButton } from '../primitives/BigButton';
+import { ExplanationCard } from './ExplanationCard';
 import { READ_FLOOR_MS_PER_WORD, READ_FLOOR_MIN_MS } from '../../constants/config';
 import { DEV_FAST, DEV_FAST_FLOOR_MS } from '../../lib/dev';
 import { shuffledIndices, type FormatProps } from './shared';
@@ -36,6 +37,7 @@ export function EventOrdering({ item, gender, readFloorMultiplier = 1, onAttempt
   const mountRef = useRef(Date.now());
   const readMsRef = useRef(0);
   const orderingAt = useRef(0);
+  const lockRef = useRef(false);   // double-tap guard (see PassageComp)
 
   const floorMs = DEV_FAST
     ? DEV_FAST_FLOOR_MS
@@ -46,6 +48,8 @@ export function EventOrdering({ item, gender, readFloorMultiplier = 1, onAttempt
     const id = setTimeout(() => setCanFinish(true), floorMs);
     return () => clearTimeout(id);
   }, [item.itemId, floorMs]);
+
+  useEffect(() => { lockRef.current = false; }, [attemptNo, phase]);
 
   function finishReading() {
     readMsRef.current = Date.now() - mountRef.current;
@@ -61,6 +65,8 @@ export function EventOrdering({ item, gender, readFloorMultiplier = 1, onAttempt
   }
 
   function submit() {
+    if (lockRef.current) return;
+    lockRef.current = true;
     // picks[k] is the display index the child put at position k; the correct
     // event for position k is original index k (events are authored in order).
     const misplaced = picks.reduce((n, dIdx, k) => n + (display[dIdx] === k ? 0 : 1), 0);
@@ -166,6 +172,7 @@ export function EventOrdering({ item, gender, readFloorMultiplier = 1, onAttempt
           <div className="text-2xl font-bold" style={{ color: firstCorrect ? '#166534' : '#B45309' }}>
             {firstCorrect ? t('session.correct', g) : t('ordering.correct_order', g)}
           </div>
+          {!firstCorrect && <ExplanationCard text={item.question.explanation} gender={gender} />}
           <BigButton
             onClick={() => onComplete({ firstAttemptCorrect: firstCorrect, readMs: readMsRef.current })}
             color="#C4A7E7"

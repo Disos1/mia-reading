@@ -40,7 +40,7 @@ import { skillHebrewKey, COMP_SKILLS } from '../constants/skills';
 import { SESSION_QUANTITY_ITEMS } from '../constants/config';
 import { NEUTRAL_RECIPES, type RecipeMods } from './errorSignatures';
 import {
-  FLASH_BANK, FLASH_DURATION_MS, ORDERING_BANK, WIC_BANK,
+  AMBIGUITY_BANK, FLASH_BANK, FLASH_DURATION_MS, ORDERING_BANK, WIC_BANK,
 } from '../content/formatBank';
 import type { Passage } from '../types';
 
@@ -149,7 +149,7 @@ function buildOrderingItem(args: {
     question: {
       id: o.id, passageId: passage.id, skillCode: o.skill,
       questionText: '', options: o.events, correctOption: 0,
-      hintText: null, questionLevel: o.level,
+      hintText: null, explanation: o.explanation, questionLevel: o.level,
     },
     level:    o.level,
     nikud:    'full',   // stories render full nikud in V1
@@ -174,7 +174,7 @@ function buildWICItem(args: {
     question: {
       id: w.id, passageId: passage.id, skillCode: w.skill,
       questionText: '', options: w.options, correctOption: 0,
-      hintText: null, questionLevel: w.level,
+      hintText: null, explanation: w.explanation, questionLevel: w.level,
     },
     level:      w.level,
     nikud:      'full',   // vocab probe — decoding load stays out of the way
@@ -198,7 +198,7 @@ function buildFlashItem(args: {
     question: {
       id: f.id, passageId: passage.id, skillCode: f.skill,
       questionText: '', options: [f.word, ...f.distractors.map(d => d.text)],
-      correctOption: 0, hintText: null, questionLevel: 1,
+      correctOption: 0, hintText: null, explanation: null, questionLevel: 1,
     },
     level: 1,
     nikud: 'none',   // flash words are unpointed by design
@@ -207,6 +207,32 @@ function buildFlashItem(args: {
       durationMs: FLASH_DURATION_MS[f.tier],
       options: [{ text: f.word, pair: null }, ...f.distractors],
     },
+  };
+}
+
+function buildAmbiguityItem(args: {
+  level: ReadingLevel; excludeQuestions: Set<string>; rng: () => number;
+}): PracticeItem | null {
+  const pool = AMBIGUITY_BANK.filter(a => !args.excludeQuestions.has(a.id));
+  if (pool.length === 0) return null;
+  const near = pool.filter(a => a.level <= args.level);
+  const from = near.length > 0 ? near : pool;
+  const a = from[Math.floor(args.rng() * from.length)];
+  const passage = pseudoPassage(`p_${a.id}`, a.sentence, a.level);
+  return {
+    itemId:         `${ItemFormat.Ambiguity}_${a.id}`,
+    format:         ItemFormat.Ambiguity,
+    skillCode:      a.skill,
+    skillHebrewKey: skillHebrewKey(a.skill),
+    passage,
+    question: {
+      id: a.id, passageId: passage.id, skillCode: a.skill,
+      questionText: '', options: a.options, correctOption: 0,
+      hintText: null, explanation: a.explanation, questionLevel: a.level,
+    },
+    level:     a.level,
+    nikud:     'none',   // the whole point: she reads it unpointed
+    ambiguity: { word: a.targetWord, pointedForm: a.pointedForm },
   };
 }
 
@@ -334,6 +360,9 @@ export function composeSession(args: ComposeArgs): SessionPlan {
       if (interSeen === 1 && (args.allowReread ?? true)) return ItemFormat.Reread;
       if (interSeen === 2) return ItemFormat.EventOrdering;
       if (interSeen === 3) return args.maintenanceDrill ? ItemFormat.Flash : ItemFormat.WordInContext;
+      // Disambiguation practice once she is off full nikud — that is when the
+      // skill becomes real (build plan H-U2).
+      if (interSeen === 4 && nikud !== 'full') return ItemFormat.Ambiguity;
       return ItemFormat.PassageComp;
     }
     return ItemFormat.PassageComp;
@@ -345,6 +374,7 @@ export function composeSession(args: ComposeArgs): SessionPlan {
   const usedQuestions = new Set<string>(args.recentQuestions);
   const plannedItems: SessionPlanItem[] = [];
   let rereadPlaced = false;
+  let workedExamplePlaced = false;
 
   slots.forEach((slot, slotIdx) => {
     // Nikud-dependent bridging: alternate interleaved items at partial nikud.
@@ -371,6 +401,9 @@ export function composeSession(args: ComposeArgs): SessionPlan {
       case ItemFormat.Flash:
         item = buildFlashItem({ excludeQuestions: usedQuestions, rng });
         break;
+      case ItemFormat.Ambiguity:
+        item = buildAmbiguityItem({ level: slot.level, excludeQuestions: usedQuestions, rng });
+        break;
       default:
         break;
     }
@@ -388,6 +421,20 @@ export function composeSession(args: ComposeArgs): SessionPlan {
     usedQuestions.add(item.question.id);
     if (item.question2) usedQuestions.add(item.question2.id);
     usedPassages.add(item.passage.id);
+
+    // Gradual release (build plan H1): the FIRST blocked-practice item is
+    // modelled rather than asked — she sees the strategy and the reasoning
+    // before being sent at three items on her weakest skill. It produces no
+    // attempt, so it never touches tally, mastery or stars.
+    if (slot.phase === 'blocked_practice' && !workedExamplePlaced) {
+      workedExamplePlaced = true;
+      plannedItems.push({
+        item, sessionPhase: slot.phase, position: plannedItems.length,
+        isWorkedExample: true,
+      });
+      return;
+    }
+
     plannedItems.push({ item, sessionPhase: slot.phase, position: plannedItems.length });
   });
 

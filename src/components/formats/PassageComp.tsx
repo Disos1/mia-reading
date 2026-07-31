@@ -4,6 +4,7 @@ import { t } from '../../i18n/t';
 import { PassageText } from '../primitives/PassageText';
 import { BidiText } from '../primitives/BidiText';
 import { BigButton } from '../primitives/BigButton';
+import { ExplanationCard } from './ExplanationCard';
 import {
   READ_FLOOR_MS_PER_WORD,
   READ_FLOOR_MIN_MS,
@@ -57,6 +58,10 @@ export function PassageComp({ item, gender, readFloorMultiplier = 1, onAttempt, 
   const mountRef       = useRef<number>(Date.now());
   const readMsRef      = useRef<number>(0);
   const optionsShownAt = useRef<number>(0);
+  // Double-tap guard. `attemptNo` is React state and therefore async: without
+  // this, several fast taps all read attemptNo === 0 and each records another
+  // "first attempt", inflating the denominator exactly like the math-app bug.
+  const lockRef = useRef(false);
 
   const floorMs = DEV_FAST
     ? DEV_FAST_FLOOR_MS
@@ -86,13 +91,17 @@ export function PassageComp({ item, gender, readFloorMultiplier = 1, onAttempt, 
     return () => clearTimeout(id);
   }, [phase, revealMs]);
 
+  // Release the tap guard once the state change it caused has rendered.
+  useEffect(() => { lockRef.current = false; }, [attemptNo, phase]);
+
   function finishReading() {
     readMsRef.current = Date.now() - mountRef.current;
     setPhase('revealQuestion');
   }
 
   function choose(originalIndex: number) {
-    if (phase !== 'options') return;
+    if (phase !== 'options' || lockRef.current) return;
+    lockRef.current = true;
     const correct = originalIndex === question.correctOption;
     const responseMs = Date.now() - optionsShownAt.current;
     const isFirst = attemptNo === 0;
@@ -202,6 +211,7 @@ export function PassageComp({ item, gender, readFloorMultiplier = 1, onAttempt, 
           <div className="text-2xl font-bold" style={{ color: firstCorrect ? '#166534' : '#B45309' }}>
             {firstCorrect ? t('session.correct', g) : t('session.moving_on', g)}
           </div>
+          {!firstCorrect && <ExplanationCard text={question.explanation} gender={gender} />}
           {/* Conditional read-aloud (spec Part 7): offered ONLY after a failed
               comp probe — never up-front, so it's remediation, not avoidance. */}
           {!firstCorrect && ttsSupported() && (

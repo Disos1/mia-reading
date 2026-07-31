@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { t } from '../../i18n/t';
 import { BigButton } from '../primitives/BigButton';
+import { ExplanationCard } from './ExplanationCard';
 import { shuffledIndices, type FormatProps } from './shared';
 
 /**
@@ -29,6 +30,7 @@ export function Flash({ item, gender, onAttempt, onComplete }: FormatProps) {
 
   const order = useMemo(() => shuffledIndices(flash.options.length), [item.itemId]);
   const optionsAt = useRef(0);
+  const lockRef = useRef(false);   // double-tap guard (see PassageComp)
 
   // intro (brief) → flash (durationMs) → options.
   useEffect(() => {
@@ -42,8 +44,11 @@ export function Flash({ item, gender, onAttempt, onComplete }: FormatProps) {
     }
   }, [phase, flash.durationMs]);
 
+  useEffect(() => { lockRef.current = false; }, [attemptNo, phase]);
+
   function choose(orig: number) {
-    if (phase !== 'options') return;
+    if (phase !== 'options' || lockRef.current) return;
+    lockRef.current = true;
     const opt = flash.options[orig];
     const correct = orig === 0;   // options[0] is always the real word
     const isFirst = attemptNo === 0;
@@ -123,6 +128,7 @@ export function Flash({ item, gender, onAttempt, onComplete }: FormatProps) {
           <div className="text-2xl font-bold" style={{ color: firstCorrect ? '#166534' : '#B45309' }}>
             {firstCorrect ? t('session.correct', g) : t('session.moving_on', g)}
           </div>
+          {!firstCorrect && <ExplanationCard text={item.question.explanation} gender={gender} />}
           <BigButton
             onClick={() => onComplete({ firstAttemptCorrect: firstCorrect, readMs: 0 })}
             color="#C4A7E7"

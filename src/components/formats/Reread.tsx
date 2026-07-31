@@ -34,6 +34,7 @@ export function Reread({ item, gender, readFloorMultiplier = 1, onAttempt, onCom
   const q1Correct = useRef(false);
   const readStart = useRef(Date.now());
   const optionsAt = useRef(0);
+  const lockRef = useRef(false);   // double-tap guard (see PassageComp)
 
   const floorMs = DEV_FAST
     ? DEV_FAST_FLOOR_MS
@@ -62,6 +63,8 @@ export function Reread({ item, gender, readFloorMultiplier = 1, onAttempt, onCom
     return () => clearTimeout(id);
   }, [phase, revealMs]);
 
+  useEffect(() => { lockRef.current = false; }, [phase]);
+
   function finishReading() {
     const ms = Date.now() - readStart.current;
     if (phase === 'read1') { read1Ms.current = ms; setPhase('q1'); }
@@ -69,7 +72,8 @@ export function Reread({ item, gender, readFloorMultiplier = 1, onAttempt, onCom
   }
 
   function answer(orig: number) {
-    if (chosen !== null) return;
+    if (chosen !== null || lockRef.current) return;
+    lockRef.current = true;
     const isQ1 = phase === 'q1';
     const q = isQ1 ? item.question : q2;
     const correct = orig === q.correctOption;
