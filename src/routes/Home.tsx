@@ -3,12 +3,14 @@ import { t } from '../i18n/t';
 import type { Profile } from '../types';
 import { BigButton } from '../components/primitives/BigButton';
 import { computeTrophyState } from '../lib/trophies';
+import { AddToHomeHint } from '../components/layout/AddToHomeHint';
 import { loadSessionRecords, loadMasteryMap } from '../lib/sessionStore';
 
 interface Props {
   profile:      Profile;
   onBegin:      () => void;
   onTrophyRoom: () => void;
+  onParent:     () => void;
   onSignOut?:   () => void;
 }
 
@@ -17,7 +19,7 @@ interface Props {
  * streak + weekly stars up top. Library/Dictionary tiles are placeholders in
  * Phase 1 (their full screens arrive in the engagement phase).
  */
-export function Home({ profile, onBegin, onTrophyRoom, onSignOut }: Props) {
+export function Home({ profile, onBegin, onTrophyRoom, onParent, onSignOut }: Props) {
   const g = { gender: profile.gender };
 
   const { streak, weekStars } = useMemo(() => {
@@ -45,6 +47,8 @@ export function Home({ profile, onBegin, onTrophyRoom, onSignOut }: Props) {
         )}
       </header>
 
+      <AddToHomeHint gender={profile.gender} />
+
       <div className="flex-1 flex flex-col items-center justify-center text-center max-w-md mx-auto w-full">
         <div className="text-6xl mb-3">📖</div>
         <h1 className="text-3xl font-bold text-brand-navy mb-2">{greeting}</h1>
@@ -65,6 +69,10 @@ export function Home({ profile, onBegin, onTrophyRoom, onSignOut }: Props) {
         >
           <span className="text-3xl">🏆</span>
           <span className="text-lg font-bold text-brand-navy">{t('home.achievements', g)}</span>
+        </button>
+
+        <button onClick={onParent} className="mt-4 text-sm text-gray-400 underline">
+          {t('home.parent', g)}
         </button>
       </div>
     </div>

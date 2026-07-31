@@ -14,6 +14,7 @@ import { TrophyRoom } from './routes/TrophyRoom';
 import { Diagnostic } from './routes/Diagnostic';
 import { DiagnosticIntro } from './routes/DiagnosticIntro';
 import { DiagnosticResults } from './routes/DiagnosticResults';
+import { ParentPanel } from './routes/ParentPanel';
 
 /**
  * Screen state machine — no React Router (same pattern as mia-math).
@@ -26,7 +27,7 @@ type Screen =
   | 'loading' | 'signin'
   | 'welcome' | 'avatar' | 'childsetup'
   | 'diag_intro' | 'diag' | 'diag_results'
-  | 'home' | 'mode' | 'session' | 'trophy';
+  | 'home' | 'mode' | 'session' | 'trophy' | 'parent';
 
 /** Where to land once we're past the auth gate. */
 function homeOrWelcome(): Screen {
@@ -153,6 +154,15 @@ export default function App() {
       />
     );
   }
+  if (screen === 'parent') {
+    return (
+      <ParentPanel
+        gender={profile.gender}
+        onBack={() => setScreen('home')}
+        onRestored={() => window.location.reload()}
+      />
+    );
+  }
   if (screen === 'trophy') {
     return <TrophyRoom profileId={profile.profileId} gender={profile.gender} onBack={() => setScreen('home')} />;
   }
@@ -163,6 +173,7 @@ export default function App() {
       profile={profile}
       onBegin={() => setScreen('mode')}
       onTrophyRoom={() => setScreen('trophy')}
+      onParent={() => setScreen('parent')}
       onSignOut={SUPABASE_CONFIGURED ? () => supabase.auth.signOut() : undefined}
     />
   );
