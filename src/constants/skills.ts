@@ -49,7 +49,12 @@ export const SKILLS: SkillDef[] = [
   { code: 'COMP_PREDICT',   strand: 'COMPREHENSION', active: true, hebrewKey: 'skill.COMP_PREDICT' },
   { code: 'COMP_MAIN_IDEA', strand: 'COMPREHENSION', active: true, hebrewKey: 'skill.COMP_MAIN_IDEA' },
   { code: 'COMP_TITLE',     strand: 'COMPREHENSION', active: true, hebrewKey: 'skill.COMP_TITLE' },
-  { code: 'COMP_QGEN',      strand: 'COMPREHENSION', active: true, hebrewKey: 'skill.COMP_QGEN' },
+  { code: 'COMP_QGEN',         strand: 'COMPREHENSION', active: true, hebrewKey: 'skill.COMP_QGEN' },
+  // 4th grade
+  { code: 'COMP_SUMMARY',      strand: 'COMPREHENSION', active: true, hebrewKey: 'skill.COMP_SUMMARY' },
+  { code: 'COMP_FACT_OPINION', strand: 'COMPREHENSION', active: true, hebrewKey: 'skill.COMP_FACT_OPINION' },
+  { code: 'COMP_COMPARE',      strand: 'COMPREHENSION', active: true, hebrewKey: 'skill.COMP_COMPARE' },
+  { code: 'COMP_GENRE',        strand: 'COMPREHENSION', active: true, hebrewKey: 'skill.COMP_GENRE' },
 ];
 
 const BY_CODE: Record<string, SkillDef> = Object.fromEntries(SKILLS.map(s => [s.code, s]));

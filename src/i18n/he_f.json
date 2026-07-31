@@ -195,5 +195,9 @@
   "parent.backup_failed": "לא הצלחנו לשמור את הגיבוי.",
   "parent.restore_cta": "שחזור מגיבוי",
   "parent.restore_done": "השחזור הצליח ({count} פריטים). טוענים מחדש…",
-  "parent.restore_failed": "הקובץ אינו קובץ גיבוי תקין של האפליקציה."
+  "parent.restore_failed": "הקובץ אינו קובץ גיבוי תקין של האפליקציה.",
+  "skill.COMP_SUMMARY": "תמצות הסיפור",
+  "skill.COMP_FACT_OPINION": "עובדה מול דעה",
+  "skill.COMP_COMPARE": "השוואה",
+  "skill.COMP_GENRE": "סוג הטקסט"
 }

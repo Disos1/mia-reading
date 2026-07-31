@@ -16,6 +16,7 @@
  */
 
 import type { Passage, PassageQuestion, ReadingLevel, VocabTier } from '../types';
+import { SERIES } from './series';
 
 export interface PassageSeed {
   passage:   Passage;
@@ -35,7 +36,9 @@ function seed(args: {
   genre?: string;
   names?: string[];
   picture?: string;
-  questions: Array<Omit<PassageQuestion, 'id' | 'passageId'>>;
+  // hintText is optional at authoring time — most questions don't need one,
+  // and the format falls back to a generic hint.
+  questions: Array<Omit<PassageQuestion, 'id' | 'passageId' | 'hintText'> & { hintText?: string | null }>;
 }): PassageSeed {
   const passage: Passage = {
     id:               args.id,
@@ -51,6 +54,7 @@ function seed(args: {
   };
   const questions: PassageQuestion[] = args.questions.map((q, i) => ({
     ...q,
+    hintText:  q.hintText ?? null,
     id:        `q_${args.id}_${i + 1}`,
     passageId: args.id,
   }));
@@ -228,6 +232,158 @@ export const PASSAGE_SEED: PassageSeed[] = [
     ],
   }),
 
+  // ══════════════════════════ Level 1 (more) ══════════════════════════
+  seed({
+    id: 'p_L1_7', level: 1, vocabTier: 'T1', picture: '☂️', genre: 'narrative', names: ['רוֹנִי'],
+    full: 'רוֹנִי לָקְחָה מִטְרִיָּה כִּי יָרַד גֶּשֶׁם.',
+    questions: [
+      { skillCode: 'COMP_CAUSE', questionLevel: 1,
+        questionText: 'לָמָּה רוֹנִי לָקְחָה מִטְרִיָּה?',
+        options: ['כִּי יָרַד גֶּשֶׁם', 'כִּי הָיָה חַם', 'כִּי הִיא אָהֲבָה אוֹתָהּ', 'כִּי אִמָּא בִּקְשָׁה'], correctOption: 0,
+        explanation: 'הַמִּלָּה "כִּי" מְחַבֶּרֶת אֶת הַסִּבָּה — וְאַחֲרֶיהָ כָּתוּב "יָרַד גֶּשֶׁם".',
+        hintText: 'חַפְּשִׂי אֶת הַמִּלָּה "כִּי".' },
+    ],
+  }),
+  seed({
+    id: 'p_L1_8', level: 1, vocabTier: 'T1', picture: '🎂', genre: 'narrative', names: ['גִּיל'],
+    full: 'הַיּוֹם יוֹם הֻלֶּדֶת לְגִיל. הוּא בֶּן תֵּשַׁע.',
+    questions: [
+      { skillCode: 'COMP_LITERAL', questionLevel: 1,
+        questionText: 'בֶּן כַּמָּה גִּיל?',
+        options: ['תֵּשַׁע', 'שֶׁבַע', 'עֶשֶׂר', 'שְׁמוֹנֶה'], correctOption: 0,
+        explanation: 'הַמִּשְׁפָּט הַשֵּׁנִי אוֹמֵר בְּדִיּוּק: "הוּא בֶּן תֵּשַׁע".',
+        hintText: 'הַמִּסְפָּר נִמְצָא בַּמִּשְׁפָּט הַשֵּׁנִי.' },
+    ],
+  }),
+  seed({
+    id: 'p_L1_9', level: 1, vocabTier: 'T1', picture: '🐦', genre: 'narrative',
+    full: 'הַצִּפּוֹר בָּנְתָה קֵן קָטָן עַל הָעֵץ.',
+    questions: [
+      { skillCode: 'COMP_LITERAL', questionLevel: 1,
+        questionText: 'אֵיפֹה הַקֵּן?',
+        options: ['עַל הָעֵץ', 'עַל הַגַּג', 'בָּאֲדָמָה', 'בַּחַלּוֹן'], correctOption: 0,
+        explanation: 'שְׁתֵּי הַמִּלִּים הָאַחֲרוֹנוֹת אוֹמְרוֹת אֶת הַמָּקוֹם: "עַל הָעֵץ".',
+        hintText: 'הַמָּקוֹם בְּסוֹף הַמִּשְׁפָּט.' },
+      { skillCode: 'COMP_VOCAB', questionLevel: 1,
+        questionText: 'מָה זֶה "קֵן"?',
+        options: ['בַּיִת שֶׁל צִפּוֹר', 'עָנָף גָּדוֹל', 'סוּג שֶׁל פֶּרַח', 'כְּלִי לְמַיִם'], correctOption: 0,
+        explanation: 'צִפּוֹר בּוֹנָה קֵן כְּדֵי לָגוּר בּוֹ — זֶה הַבַּיִת שֶׁלָּהּ.' },
+    ],
+  }),
+
+  // ══════════════════════════ Level 2 (more) ══════════════════════════
+  seed({
+    id: 'p_L2_6', level: 2, vocabTier: 'T2', genre: 'narrative', names: ['אֵלָה'],
+    full: 'אֵלָה שָׁכְחָה אֶת הַקַּלְמָר בַּבַּיִת. הַחֲבֵרָה שֶׁלָּהּ הִשְׁאִילָה לָהּ עִפָּרוֹן, וְהַשִּׁעוּר עָבַר בְּשָׁלוֹם.',
+    questions: [
+      { skillCode: 'COMP_INFERENCE', questionLevel: 2,
+        questionText: 'לָמָּה אֵלָה הָיְתָה צְרִיכָה עִפָּרוֹן?',
+        options: ['כִּי הַקַּלְמָר נִשְׁאַר בַּבַּיִת', 'כִּי הָעִפָּרוֹן שֶׁלָּהּ נִשְׁבַּר', 'כִּי הִיא אִבְּדָה תִּיק', 'כִּי הַמּוֹרָה בִּקְשָׁה'], correctOption: 0,
+        explanation: 'הִיא שָׁכְחָה אֶת הַקַּלְמָר — וּבַקַּלְמָר נִמְצָאִים כְּלֵי הַכְּתִיבָה. זֶה לֹא כָּתוּב, הִסַּקְנוּ.',
+        hintText: 'מָה יֵשׁ בְּתוֹךְ קַלְמָר?' },
+      { skillCode: 'COMP_CHARACTER', questionLevel: 2,
+        questionText: 'מָה אֶפְשָׁר לְהַגִּיד עַל הַחֲבֵרָה?',
+        options: ['הִיא עוֹזֶרֶת', 'הִיא מְפֻזֶּרֶת', 'הִיא בַּיְשָׁנִית', 'הִיא כּוֹעֶסֶת'], correctOption: 0,
+        explanation: 'הִיא הִשְׁאִילָה עִפָּרוֹן בְּלִי שֶׁבִּקְשׁוּ פַּעֲמַיִם — כָּךְ מִתְנַהֵג מִי שֶׁעוֹזֵר.' },
+    ],
+  }),
+  seed({
+    id: 'p_L2_7', level: 2, vocabTier: 'T2', genre: 'narrative', names: ['אָבִיב'],
+    full: 'אָבִיב רָצָה לִבְנוֹת סֻכָּה מִשְּׂמִיכוֹת וְכִסְּאוֹת. הוּא בָּנָה, וְהַכֹּל נָפַל. הוּא נִסָּה שׁוּב עִם כִּסֵּא כָּבֵד בָּאֶמְצַע, וְהַפַּעַם זֶה הֶחְזִיק.',
+    questions: [
+      { skillCode: 'COMP_SEQUENCE', questionLevel: 2,
+        questionText: 'מָה עָשָׂה אָבִיב אַחֲרֵי שֶׁהַסֻּכָּה נָפְלָה?',
+        options: ['נִסָּה שׁוּב עִם כִּסֵּא כָּבֵד', 'הָלַךְ לִישֹׁן', 'קָרָא לְאַבָּא', 'וִתֵּר וְיָצָא הַחוּצָה'], correctOption: 0,
+        explanation: 'הַסֵּדֶר: בָּנָה ← נָפַל ← נִסָּה שׁוּב אַחֶרֶת.' },
+      { skillCode: 'COMP_MAIN_IDEA', questionLevel: 2,
+        questionText: 'מָה הָרַעְיוֹן שֶׁל הַסִּפּוּר?',
+        options: ['כְּדַאי לְנַסּוֹת שׁוּב בְּדֶרֶךְ אַחֶרֶת', 'כִּסְּאוֹת הֵם כְּבֵדִים', 'שְׂמִיכוֹת הֵן חַמּוֹת', 'אָסוּר לְשַׂחֵק בַּסָּלוֹן'], correctOption: 0,
+        explanation: 'כָּל הַסִּפּוּר הוּא נִסָּיוֹן ← כִּשָּׁלוֹן ← נִסָּיוֹן מְשֻׁפָּר שֶׁהִצְלִיחַ.' },
+    ],
+  }),
+  seed({
+    id: 'p_L2_8', level: 2, vocabTier: 'T2', genre: 'informational',
+    full: 'לַצַּב יֵשׁ שִׁרְיוֹן קָשֶׁה עַל הַגַּב. כְּשֶׁהוּא מְפַחֵד, הוּא מַכְנִיס פְּנִימָה אֶת הָרֹאשׁ וְאֶת הָרַגְלַיִם. כָּךְ הוּא מוּגָן מִבַּעֲלֵי חַיִּים אֲחֵרִים.',
+    questions: [
+      { skillCode: 'COMP_GENRE', questionLevel: 2,
+        questionText: 'אֵיזֶה סוּג טֶקְסְט זֶה?',
+        options: ['טֶקְסְט מֵידָע', 'סִפּוּר עַל יַלְדָּה', 'הוֹרָאוֹת', 'שִׁיר'], correctOption: 0,
+        explanation: 'אֵין כָּאן דְּמוּת וְאֵין עֲלִילָה — הַטֶּקְסְט מְלַמֵּד עֻבְדּוֹת עַל הַצַּב.' },
+      { skillCode: 'COMP_CAUSE', questionLevel: 2,
+        questionText: 'לָמָּה הַצַּב מַכְנִיס אֶת הָרֹאשׁ פְּנִימָה?',
+        options: ['כְּדֵי לְהִתְגּוֹנֵן', 'כְּדֵי לִישֹׁן', 'כְּדֵי לֶאֱכֹל', 'כְּדֵי לָרוּץ מַהֵר'], correctOption: 0,
+        explanation: 'כָּתוּב שֶׁהוּא עוֹשֶׂה זֹאת כְּשֶׁהוּא מְפַחֵד, וְכָךְ הוּא מוּגָן.' },
+    ],
+  }),
+
+  // ══════════════════════════ Level 3 (more) ══════════════════════════
+  seed({
+    id: 'p_L3_3', level: 3, vocabTier: 'MIXED', genre: 'narrative', names: ['מַאיָה'],
+    full: 'מַאיָה הִתְאַמְּנָה שָׁבוּעַ שָׁלֵם לִפְנֵי תַּחֲרוּת הַשְּׂחִיָּה. בַּתַּחֲרוּת עַצְמָהּ הִיא הִגִּיעָה שְׁלִישִׁית, וּבַהַתְחָלָה הָיְתָה מְאֻכְזֶבֶת. אֲבָל כְּשֶׁהִיא רָאֲתָה שֶׁשִּׁפְּרָה אֶת הַזְּמַן שֶׁלָּהּ בְּשָׁלוֹשׁ שְׁנִיּוֹת, הִיא חִיְּכָה.',
+    questions: [
+      { skillCode: 'COMP_INFERENCE', questionLevel: 3,
+        questionText: 'לָמָּה מַאיָה חִיְּכָה בַּסּוֹף?',
+        options: ['כִּי הִשְׁתַּפְּרָה לְעֻמַּת עַצְמָהּ', 'כִּי נִצְּחָה בַּתַּחֲרוּת', 'כִּי הַתַּחֲרוּת נִגְמְרָה', 'כִּי חֲבֵרָה שֶׁלָּהּ נִצְּחָה'], correctOption: 0,
+        explanation: 'הִיא לֹא נִצְּחָה — אֲבָל הַזְּמַן שֶׁלָּהּ הִשְׁתַּפֵּר. זֶה מָה שֶׁשִּׂמֵּחַ אוֹתָהּ.' },
+      { skillCode: 'COMP_FACT_OPINION', questionLevel: 3,
+        questionText: 'אֵיזֶה מִשְׁפָּט הוּא עֻבְדָּה?',
+        options: ['מַאיָה הִגִּיעָה בַּמָּקוֹם הַשְּׁלִישִׁי', 'שְׂחִיָּה הִיא הַסְּפּוֹרְט הֲכִי יָפֶה', 'כְּדַאי לְכֻלָּם לִשְׂחוֹת', 'הַתַּחֲרוּת הָיְתָה מְשַׁעֲמֶמֶת'], correctOption: 0,
+        explanation: 'מָקוֹם בְּתַחֲרוּת אֶפְשָׁר לִבְדֹּק בַּתּוֹצָאוֹת. הַשְּׁאָר הֵן דֵּעוֹת.' },
+    ],
+  }),
+  seed({
+    id: 'p_L3_4', level: 3, vocabTier: 'MIXED', genre: 'instructional',
+    full: 'כְּדֵי לְהָכִין סָלָט פֵּרוֹת, קֹדֶם שׁוֹטְפִים אֶת הַפֵּרוֹת בְּמַיִם. אַחַר כָּךְ חוֹתְכִים אוֹתָם לַחֲתִיכוֹת קְטַנּוֹת בְּעֶזְרַת מְבֻגָּר. מְעָרְבְּבִים הַכֹּל בְּקַעֲרָה גְּדוֹלָה, וְאִם רוֹצִים — מוֹסִיפִים מְעַט מִיץ לִימוֹן.',
+    questions: [
+      { skillCode: 'COMP_GENRE', questionLevel: 3,
+        questionText: 'אֵיזֶה סוּג טֶקְסְט זֶה?',
+        options: ['הוֹרָאוֹת', 'סִפּוּר', 'טֶקְסְט מֵידָע עַל פֵּרוֹת', 'מִכְתָּב'], correctOption: 0,
+        explanation: 'הַטֶּקְסְט מַסְבִּיר שָׁלָב אַחֲרֵי שָׁלָב אֵיךְ לַעֲשׂוֹת מַשֶּׁהוּ — אֵלֶּה הוֹרָאוֹת.' },
+      { skillCode: 'COMP_SEQUENCE', questionLevel: 3,
+        questionText: 'מָה עוֹשִׂים רִאשׁוֹן?',
+        options: ['שׁוֹטְפִים אֶת הַפֵּרוֹת', 'חוֹתְכִים לַחֲתִיכוֹת', 'מְעָרְבְּבִים בַּקְּעָרָה', 'מוֹסִיפִים לִימוֹן'], correctOption: 0,
+        explanation: 'הַמִּלָּה "קֹדֶם" מְסַמֶּנֶת אֶת הַשָּׁלָב הָרִאשׁוֹן.' },
+    ],
+  }),
+
+  // ══════════════════════════ Level 4 (4th grade) ══════════════════════════
+  seed({
+    id: 'p_L4_1', level: 4, vocabTier: 'MIXED', genre: 'informational',
+    full: 'הַדְּבוֹרִים חַיּוֹת בְּקִבּוּצִים גְּדוֹלִים שֶׁנִּקְרָאִים כַּוֶּרֶת. לְכָל דְּבוֹרָה יֵשׁ תַּפְקִיד: אַחַת מְטִילָה בֵּיצִים, אֲחֵרוֹת מְנַקּוֹת, וְרֻבָּן יוֹצְאוֹת לְחַפֵּשׂ צוּף בִּפְרָחִים.\nכְּשֶׁדְּבוֹרָה מוֹצֵאת פְּרָחִים טוֹבִים, הִיא חוֹזֶרֶת לַכַּוֶּרֶת וְרוֹקֶדֶת רִקּוּד מְיֻחָד. הַכִּוּוּן שֶׁל הָרִקּוּד מְסַפֵּר לַאֲחֵרוֹת לְאָן לָטוּס.\nבִּזְכוּת הַדְּבוֹרִים גְּדֵלִים הַרְבֵּה מֵהַפֵּרוֹת וְהַיְּרָקוֹת שֶׁאֲנַחְנוּ אוֹכְלִים.',
+    questions: [
+      { skillCode: 'COMP_MAIN_IDEA', questionLevel: 4,
+        questionText: 'מָה הָרַעְיוֹן הַמֶּרְכָּזִי?',
+        options: ['הַדְּבוֹרִים חַיּוֹת יַחַד וְכָל אַחַת עוֹזֶרֶת', 'רִקּוּדִים הֵם דָּבָר יָפֶה', 'פְּרָחִים צוֹמְחִים בַּקַּיִץ', 'דְּבוֹרִים עוֹקְצוֹת'], correctOption: 0,
+        explanation: 'כָּל שְׁלוֹשֶׁת הַחֲלָקִים מְתָאֲרִים חַיִּים מְשֻׁתָּפִים וַחֲלֻקַּת תַּפְקִידִים.' },
+      { skillCode: 'COMP_LITERAL', questionLevel: 4,
+        questionText: 'אֵיךְ דְּבוֹרָה מְסַפֶּרֶת לַאֲחֵרוֹת אֵיפֹה יֵשׁ פְּרָחִים?',
+        options: ['בְּרִקּוּד מְיֻחָד', 'בְּזִמְזוּם חָזָק', 'הִיא מְבִיאָה פֶּרַח', 'הִיא מוֹבִילָה אוֹתָן'], correctOption: 0,
+        explanation: 'הַפִּסְקָה הַשְּׁנִיָּה אוֹמֶרֶת שֶׁהִיא רוֹקֶדֶת, וְהַכִּוּוּן מְסַפֵּר לְאָן לָטוּס.' },
+      { skillCode: 'COMP_SUMMARY', questionLevel: 4,
+        questionText: 'אֵיזֶה מִשְׁפָּט מְסַכֵּם אֶת הַקֶּטַע?',
+        options: ['דְּבוֹרִים חַיּוֹת בְּיַחַד, מְחַלְּקוֹת תַּפְקִידִים וְעוֹזְרוֹת לַצְּמָחִים', 'דְּבוֹרִים אוֹהֲבוֹת לִרְקֹד', 'בַּכַּוֶּרֶת חַם מְאוֹד', 'אֲנָשִׁים מְגַדְּלִים דְּבוֹרִים'], correctOption: 0,
+        explanation: 'תַּמְצִית טוֹבָה אוֹסֶפֶת אֶת כָּל הַקֶּטַע לְמִשְׁפָּט אֶחָד, לֹא רַק פְּרָט אֶחָד מִמֶּנּוּ.' },
+    ],
+  }),
+  seed({
+    id: 'p_L4_2', level: 4, vocabTier: 'MIXED', genre: 'narrative', names: ['עִידוֹ', 'נֹעַם'],
+    full: 'עִידוֹ וְנֹעַם רָצוּ לְהַשְׁתַּתֵּף בַּתַּחֲרוּת הַמַּדָּעִים שֶׁל בֵּית הַסֵּפֶר, אֲבָל הָיָה לָהֶם רַק שָׁבוּעַ.\nעִידוֹ הִצִּיעַ לִבְנוֹת הַר גַּעַשׁ מְפֻרְסָם, כְּמוֹ שֶׁכֻּלָּם עוֹשִׂים. נֹעַם חָשְׁבָה שֶׁכְּדַאי דַּוְקָא לִבְדֹּק אֵיזֶה מַשְׁקֶה מַרְקִיב מַסְמֵר מַהֵר יוֹתֵר — שְׁאֵלָה שֶׁאִישׁ לֹא בָּדַק לִפְנֵיהֶם.\nהֵם וִכְּחוּ קְצָת, וּבַסּוֹף בָּחֲרוּ בָּרַעְיוֹן שֶׁל נֹעַם. בְּיוֹם הַתַּחֲרוּת הֵם לֹא זָכוּ בַּמָּקוֹם הָרִאשׁוֹן, אֲבָל הַשּׁוֹפֵט אָמַר לָהֶם שֶׁזוֹ הַשְּׁאֵלָה הַמְּעַנְיֶנֶת בְּיוֹתֵר שֶׁשָּׁמַע כָּל הַיּוֹם.',
+    questions: [
+      { skillCode: 'COMP_COMPARE', questionLevel: 4,
+        questionText: 'מָה הַהֶבְדֵּל בֵּין הָרַעְיוֹן שֶׁל עִידוֹ לְשֶׁל נֹעַם?',
+        options: ['שֶׁלּוֹ הָיָה מֻכָּר, וְשֶׁלָּהּ הָיָה חָדָשׁ', 'שְׁנֵיהֶם הָיוּ זֵהִים', 'שֶׁלָּהּ הָיָה קַל יוֹתֵר', 'שֶׁלּוֹ עָלָה יוֹתֵר כֶּסֶף'], correctOption: 0,
+        explanation: 'הַר גַּעַשׁ "כְּמוֹ שֶׁכֻּלָּם עוֹשִׂים" מוּל שְׁאֵלָה "שֶׁאִישׁ לֹא בָּדַק" — מֻכָּר מוּל חָדָשׁ.' },
+      { skillCode: 'COMP_INFERENCE', questionLevel: 4,
+        questionText: 'לָמָּה הַשּׁוֹפֵט הִתְלַהֵב מֵהַפְּרוֹיֶקְט שֶׁלָּהֶם?',
+        options: ['כִּי הֵם שָׁאֲלוּ שְׁאֵלָה מְקוֹרִית', 'כִּי הֵם עָבְדוּ מַהֵר', 'כִּי הַתַּצּוּגָה הָיְתָה יָפָה', 'כִּי הֵם זָכוּ'], correctOption: 0,
+        explanation: 'הֵם לֹא זָכוּ, אֲבָל הוּא אָמַר שֶׁזּוֹ הַשְּׁאֵלָה הַמְּעַנְיֶנֶת בְּיוֹתֵר — הַמְּקוֹרִיּוּת הִיא שֶׁרִשְּׁמָה אוֹתוֹ.' },
+      { skillCode: 'COMP_FACT_OPINION', questionLevel: 4,
+        questionText: 'אֵיזֶה מִשְׁפָּט הוּא דֵּעָה?',
+        options: ['זוֹ הַשְּׁאֵלָה הַמְּעַנְיֶנֶת בְּיוֹתֵר', 'הָיָה לָהֶם שָׁבוּעַ אֶחָד', 'הֵם לֹא זָכוּ בַּמָּקוֹם הָרִאשׁוֹן', 'הֵם בָּחֲרוּ בָּרַעְיוֹן שֶׁל נֹעַם'], correctOption: 0,
+        explanation: '"הֲכִי מְעַנְיֶנֶת" הִיא הַרְגָּשָׁה שֶׁל הַשּׁוֹפֵט. הַשְּׁאָר עֻבְדּוֹת שֶׁאֶפְשָׁר לִבְדֹּק.' },
+    ],
+  }),
+
   // ══════════════════════════ Level 3 ══════════════════════════
   seed({
     id: 'p_L3_1', level: 3, vocabTier: 'MIXED', genre: 'kindness', names: ['רִינָה'],
@@ -273,8 +429,29 @@ export const PASSAGE_SEED: PassageSeed[] = [
   }),
 ];
 
+/**
+ * Serialized chapters become ordinary passages: the composer, the no-repeat
+ * rule and the scaffold treat them like anything else. Only the Library
+ * (Phase 9) will care that they belong to a series, which is why the id keeps
+ * the series prefix.
+ */
+const SERIES_SEED: PassageSeed[] = SERIES.flatMap(series =>
+  series.chapters.map(ch => seed({
+    id:        `p_${ch.id}`,
+    level:     ch.level,
+    vocabTier: ch.vocabTier,
+    full:      ch.full,
+    genre:     'narrative',
+    names:     series.names,
+    questions: ch.questions,
+  })),
+);
+
+/** Everything the composer can draw on: standalone passages plus story chapters. */
+export const ALL_SEED: PassageSeed[] = [...PASSAGE_SEED, ...SERIES_SEED];
+
 /** Flat list of every passage. */
-export const ALL_PASSAGES: Passage[] = PASSAGE_SEED.map(s => s.passage);
+export const ALL_PASSAGES: Passage[] = ALL_SEED.map(s => s.passage);
 
 /** Flat list of every comp question. */
-export const ALL_QUESTIONS: PassageQuestion[] = PASSAGE_SEED.flatMap(s => s.questions);
+export const ALL_QUESTIONS: PassageQuestion[] = ALL_SEED.flatMap(s => s.questions);

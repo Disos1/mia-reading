@@ -371,6 +371,7 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
             item: current.item,
             gender,
             readFloorMultiplier: recipes.readFloorMultiplier,
+            gapProfile: profile.gapProfileJson,
             onAttempt:  (r: FormatAttempt) => handleAttempt(current, r),
             onComplete: handleComplete,
           };

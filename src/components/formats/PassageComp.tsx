@@ -1,32 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Gender, PracticeItem } from '../../types';
 import { t } from '../../i18n/t';
 import { PassageText } from '../primitives/PassageText';
 import { BidiText } from '../primitives/BidiText';
 import { BigButton } from '../primitives/BigButton';
 import { ExplanationCard } from './ExplanationCard';
-import {
-  READ_FLOOR_MS_PER_WORD,
-  READ_FLOOR_MIN_MS,
-  STEPWISE_REVEAL_MS,
-} from '../../constants/config';
+import { STEPWISE_REVEAL_MS } from '../../constants/config';
+import { readFloorMs } from '../../lib/readFloor';
 import { DEV_FAST, DEV_FAST_FLOOR_MS, DEV_FAST_REVEAL_MS } from '../../lib/dev';
 import { speak, stopSpeaking, ttsSupported } from '../../lib/tts';
-import type { FormatAttempt } from './shared';
+import type { FormatAttempt, FormatProps } from './shared';
 
 /** One answer submission, reported up so Session can build the PracticeAttempt. */
 export type AttemptResult = FormatAttempt;
 
-interface Props {
-  item:       PracticeItem;
-  gender:     Gender;
-  /** Read-floor inflation from the fast-inaccurate recipe (default 1). */
-  readFloorMultiplier?: number;
-  /** Called on every answer submission (first attempt AND retry). */
-  onAttempt:  (r: AttemptResult) => void;
-  /** Called once when the item is finished (after correct or 2nd wrong). */
-  onComplete: (summary: { firstAttemptCorrect: boolean; readMs: number }) => void;
-}
+/** Format 1 takes the shared contract like every other format. */
+type Props = FormatProps;
 
 type Phase = 'reading' | 'revealQuestion' | 'options' | 'feedback';
 
@@ -40,7 +28,7 @@ function shuffle<T>(arr: T[]): number[] {
   return idx;
 }
 
-export function PassageComp({ item, gender, readFloorMultiplier = 1, onAttempt, onComplete }: Props) {
+export function PassageComp({ item, gender, readFloorMultiplier = 1, gapProfile, onAttempt, onComplete }: Props) {
   const g = { gender };
   const { passage, question } = item;
 
@@ -65,7 +53,7 @@ export function PassageComp({ item, gender, readFloorMultiplier = 1, onAttempt, 
 
   const floorMs = DEV_FAST
     ? DEV_FAST_FLOOR_MS
-    : Math.max(READ_FLOOR_MIN_MS, passage.wordCount * READ_FLOOR_MS_PER_WORD) * readFloorMultiplier;
+    : readFloorMs(passage.wordCount, gapProfile ?? null, readFloorMultiplier);
   const revealMs = DEV_FAST ? DEV_FAST_REVEAL_MS : STEPWISE_REVEAL_MS;
 
   // Read-time floor: enable "finished reading" only after a real dwell (protects

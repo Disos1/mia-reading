@@ -84,6 +84,20 @@ export function pickItem(args: PickArgs): PracticeItem | null {
     { skill: args.skill,                    ...base },
     {                    level: args.level, ...base },
     {                                       ...base },
+    // ── Cold-start relaxation (spec Part 9) ──────────────────────────────────
+    // When the bank runs dry the composer used to return null, so the session
+    // simply got shorter — and below the star item-floor that silently switched
+    // off her rewards, which reads as punishment for a content shortage.
+    //
+    // We relax the PASSAGE exclusion before the QUESTION one on purpose: a
+    // familiar passage with a question she has not seen is re-reading, which is
+    // pedagogically fine (and is exactly what Format 2 does deliberately).
+    // Repeating a question she has already answered teaches nothing, so that
+    // exclusion is given up last.
+    { skill: args.skill, level: args.level, excludeQuestions: args.excludeQuestions },
+    {                                       excludeQuestions: args.excludeQuestions },
+    {                    level: args.level },
+    {},
   ];
 
   for (const filter of attempts) {

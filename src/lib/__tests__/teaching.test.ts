@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { composeSession } from '../sessionComposer';
 import { strategyFor, STRATEGY_STEPS } from '../../constants/strategySteps';
-import { PASSAGE_SEED } from '../../content/passages';
+import { ALL_SEED, ALL_PASSAGES } from '../../content/passages';
+import { SERIES } from '../../content/series';
 import { WIC_BANK, ORDERING_BANK, AMBIGUITY_BANK } from '../../content/formatBank';
 import { COMP_SKILLS } from '../../constants/skills';
 import { toNoNikud } from '../nikud';
@@ -16,7 +17,7 @@ import { ItemFormat } from '../../types';
 
 describe('content can explain itself', () => {
   it('every authored passage question has an explanation', () => {
-    const missing = PASSAGE_SEED
+    const missing = ALL_SEED
       .flatMap(s => s.questions)
       .filter(q => !q.explanation?.trim())
       .map(q => q.id);
@@ -35,6 +36,66 @@ describe('content can explain itself', () => {
 
   it('falls back to generic steps rather than showing nothing', () => {
     expect(strategyFor('FLU_SILENT_RATE').length).toBeGreaterThan(0);
+  });
+});
+
+describe('content bank — enough, and varied', () => {
+  it('carries enough distinct questions to fill a session without repeats', () => {
+    // A 16-item session used to consume nearly the whole bank, so by session
+    // two she was seeing familiar text. Guard the floor that made that happen.
+    const questions = ALL_SEED.flatMap(s => s.questions);
+    expect(questions.length).toBeGreaterThanOrEqual(60);
+    expect(ALL_PASSAGES.length).toBeGreaterThanOrEqual(30);
+  });
+
+  it('spans all four reading levels, including 4th grade', () => {
+    const levels = new Set(ALL_PASSAGES.map(p => p.level));
+    expect([...levels].sort()).toEqual([1, 2, 3, 4]);
+  });
+
+  it('offers non-narrative text, which 4th grade introduces', () => {
+    const genres = new Set(ALL_PASSAGES.map(p => p.genre));
+    expect(genres.has('informational')).toBe(true);
+    expect(genres.has('instructional')).toBe(true);
+  });
+
+  it('has unique passage and question ids', () => {
+    const pids = ALL_PASSAGES.map(p => p.id);
+    expect(new Set(pids).size).toBe(pids.length);
+    const qids = ALL_SEED.flatMap(s => s.questions).map(q => q.id);
+    expect(new Set(qids).size).toBe(qids.length);
+  });
+});
+
+describe('serialized stories', () => {
+  it('number chapters consecutively from 1 so a series can be read in order', () => {
+    for (const s of SERIES) {
+      expect(s.chapters.map(c => c.chapter), s.id).toEqual(
+        s.chapters.map((_, i) => i + 1),
+      );
+    }
+  });
+
+  it('never drops in level across a series — continuing is also a ramp', () => {
+    for (const s of SERIES) {
+      const levels = s.chapters.map(c => c.level);
+      expect([...levels].sort((a, b) => a - b), s.id).toEqual(levels);
+    }
+  });
+
+  it('reaches the composer as ordinary passages', () => {
+    const ids = new Set(ALL_PASSAGES.map(p => p.id));
+    for (const s of SERIES) {
+      for (const c of s.chapters) expect(ids.has(`p_${c.id}`), c.id).toBe(true);
+    }
+  });
+
+  it('every chapter question explains itself', () => {
+    for (const s of SERIES) {
+      for (const c of s.chapters) {
+        for (const q of c.questions) expect(q.explanation?.trim(), c.id).toBeTruthy();
+      }
+    }
   });
 });
 

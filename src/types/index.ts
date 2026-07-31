@@ -28,8 +28,18 @@ export interface Avatar {
 // syntax + question depth; Nikud state is the pointed→unpointed weaning axis
 // that is the heart of the grade-3 transition (Share & Bar-On triplex model).
 
-/** רמת קריאה — 1 (basic) · 2 (intermediate) · 3 (challenging). */
-export type ReadingLevel = 1 | 2 | 3;
+/**
+ * רמת קריאה — 1 (basic) · 2 (intermediate) · 3 (challenging) · 4 (4th grade:
+ * multi-paragraph, 150–300 words, informational as well as narrative).
+ *
+ * Level 4 was added ahead of the content scale-up rather than after it: Mia
+ * starts 4th grade in a month, and generating a bank against a 3-level
+ * template would mean regenerating all of it.
+ */
+export type ReadingLevel = 1 | 2 | 3 | 4;
+
+/** Text type. 4th grade introduces non-narrative reading explicitly. */
+export type Genre = 'narrative' | 'informational' | 'instructional' | 'diagnostic' | 'format';
 
 /** ניקוד — full (מלא) · partial (חלקי) · none (ללא). */
 export type NikudState = 'full' | 'partial' | 'none';
@@ -70,7 +80,12 @@ export type SkillCode =
   | 'COMP_PREDICT'
   | 'COMP_MAIN_IDEA'
   | 'COMP_TITLE'
-  | 'COMP_QGEN';
+  | 'COMP_QGEN'
+  // 4th-grade additions (curriculum introduces these explicitly)
+  | 'COMP_SUMMARY'       // תמצות — say the whole text in one sentence
+  | 'COMP_FACT_OPINION'  // עובדה מול דעה
+  | 'COMP_COMPARE'       // השוואה בין דמויות / טקסטים
+  | 'COMP_GENRE';        // סוג הטקסט — סיפור / מידע / הוראות
 
 // ─── Mastery ──────────────────────────────────────────────────────────────────
 

@@ -44,6 +44,25 @@ export const READ_FLOOR_MS_PER_WORD = 1000;
 /** Absolute minimum so 1-2 word Level-1 passages still require a real beat. */
 export const READ_FLOOR_MIN_MS = 2500;
 
+/**
+ * Calibrated floor. The fixed 1s/word above assumes ~60 wpm — right for a
+ * struggling 3rd grader, wrong for a 4th grader reading 90–140, who would sit
+ * in front of a button that refuses to unlock and learn that it lies.
+ *
+ * Once a diagnostic baseline exists we derive the floor from HER measured rate
+ * instead: she must spend at least this fraction of her own typical reading
+ * time on the passage. Clamped so a wild baseline can't remove the floor
+ * altogether or make it punitive.
+ */
+export const READ_FLOOR_BASELINE_FRACTION = 0.6;
+export const READ_FLOOR_MIN_MS_PER_WORD   = 220;   // ≈ 270 wpm ceiling on speed
+export const READ_FLOOR_MAX_MS_PER_WORD   = 1000;  // the old fixed value, as a cap
+
+/** Israeli grade-level silent reading norms (wpm), used for parent-facing
+ *  comparisons and the fast/slow zone split. 3rd ≈ 60, 4th ≈ 90. */
+export const GRADE_NORM_WPM_G3 = 60;
+export const GRADE_NORM_WPM_G4 = 90;
+
 // ─── Stepwise question reveal (plan B1.2 / C4, research-backed anti-guessing) ──
 //
 // After "סיימתי לקרוא" the question shows ALONE for this long before the four

@@ -3,7 +3,8 @@ import { t } from '../../i18n/t';
 import { PassageText } from '../primitives/PassageText';
 import { BidiText } from '../primitives/BidiText';
 import { BigButton } from '../primitives/BigButton';
-import { READ_FLOOR_MS_PER_WORD, READ_FLOOR_MIN_MS, STEPWISE_REVEAL_MS } from '../../constants/config';
+import { STEPWISE_REVEAL_MS } from '../../constants/config';
+import { readFloorMs } from '../../lib/readFloor';
 import { DEV_FAST, DEV_FAST_FLOOR_MS, DEV_FAST_REVEAL_MS } from '../../lib/dev';
 import { shuffledIndices, type FormatProps } from './shared';
 
@@ -18,7 +19,7 @@ import { shuffledIndices, type FormatProps } from './shared';
  *
  * item.question = pass-1 probe · item.question2 = pass-2 probe.
  */
-export function Reread({ item, gender, readFloorMultiplier = 1, onAttempt, onComplete }: FormatProps) {
+export function Reread({ item, gender, readFloorMultiplier = 1, gapProfile, onAttempt, onComplete }: FormatProps) {
   const g = { gender };
   const { passage } = item;
   const q2 = item.question2 ?? item.question;
@@ -38,7 +39,7 @@ export function Reread({ item, gender, readFloorMultiplier = 1, onAttempt, onCom
 
   const floorMs = DEV_FAST
     ? DEV_FAST_FLOOR_MS
-    : Math.max(READ_FLOOR_MIN_MS, passage.wordCount * READ_FLOOR_MS_PER_WORD) * readFloorMultiplier;
+    : readFloorMs(passage.wordCount, gapProfile ?? null, readFloorMultiplier);
   const revealMs = DEV_FAST ? DEV_FAST_REVEAL_MS : STEPWISE_REVEAL_MS;
 
   const inRead = phase === 'read1' || phase === 'read2';

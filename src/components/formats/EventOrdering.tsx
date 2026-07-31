@@ -4,7 +4,8 @@ import { PassageText } from '../primitives/PassageText';
 import { BidiText } from '../primitives/BidiText';
 import { BigButton } from '../primitives/BigButton';
 import { ExplanationCard } from './ExplanationCard';
-import { READ_FLOOR_MS_PER_WORD, READ_FLOOR_MIN_MS } from '../../constants/config';
+
+import { readFloorMs } from '../../lib/readFloor';
 import { DEV_FAST, DEV_FAST_FLOOR_MS } from '../../lib/dev';
 import { shuffledIndices, type FormatProps } from './shared';
 
@@ -20,7 +21,7 @@ import { shuffledIndices, type FormatProps } from './shared';
  * first-wrong-equivalent → hint + one retry · otherwise wrong → flash the
  * correct order. `chosenOption` reports the misplaced-card count.
  */
-export function EventOrdering({ item, gender, readFloorMultiplier = 1, onAttempt, onComplete }: FormatProps) {
+export function EventOrdering({ item, gender, readFloorMultiplier = 1, gapProfile, onAttempt, onComplete }: FormatProps) {
   const g = { gender };
   const events = item.ordering ?? [];
 
@@ -41,7 +42,7 @@ export function EventOrdering({ item, gender, readFloorMultiplier = 1, onAttempt
 
   const floorMs = DEV_FAST
     ? DEV_FAST_FLOOR_MS
-    : Math.max(READ_FLOOR_MIN_MS, item.passage.wordCount * READ_FLOOR_MS_PER_WORD) * readFloorMultiplier;
+    : readFloorMs(item.passage.wordCount, gapProfile ?? null, readFloorMultiplier);
 
   useEffect(() => {
     mountRef.current = Date.now();

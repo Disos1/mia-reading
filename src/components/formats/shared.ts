@@ -6,7 +6,7 @@
  * ordering) refine what Session records without special-casing the runtime.
  */
 
-import type { ErrorSignatureCode, Gender, PracticeItem, SkillCode } from '../../types';
+import type { ErrorSignatureCode, GapProfile, Gender, PracticeItem, SkillCode } from '../../types';
 
 export interface FormatAttempt {
   correct:      boolean;
@@ -30,6 +30,9 @@ export interface FormatProps {
   gender:     Gender;
   /** Read-floor inflation from the fast-inaccurate recipe (default 1). */
   readFloorMultiplier?: number;
+  /** Her diagnostic baseline, so the read floor is calibrated to HER reading
+   *  rate rather than a fixed constant (lib/readFloor). */
+  gapProfile?: GapProfile | null;
   /** Called on every answer submission (first attempt AND retry). */
   onAttempt:  (r: FormatAttempt) => void;
   /** Called once when the item is finished. */
