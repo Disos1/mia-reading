@@ -8,7 +8,8 @@
  *
  * ⚠️  NIKUD REVIEW: Dima (native speaker) should proof the vocalization before
  *     Mia uses this in earnest — a wrong vowel teaches a wrong reading. Content
- *     is warm/everyday with diverse Israeli names (Hebrew/Arabic/Russian).
+ * Names: Hebrew/Israeli and internationally common names (Dima's preference,
+ * July 2026). Keep this in mind when generating the Phase 8 content bank.
  *
  * Scaling: the Phase 5 generation pipeline grows this to ~300. Adding a passage
  * is one PassageSeed entry; ids follow `p_L{level}_{n}` and `q_{passageId}_{n}`.
@@ -124,14 +125,14 @@ export const PASSAGE_SEED: PassageSeed[] = [
     ],
   }),
   seed({
-    id: 'p_L1_6', level: 1, vocabTier: 'T1', picture: '🐶', genre: 'everyday', names: ['סַמִּי'],
-    full: 'לְסַמִּי יֵשׁ כֶּלֶב קָטָן וְלָבָן.',
+    id: 'p_L1_6', level: 1, vocabTier: 'T1', picture: '🐶', genre: 'everyday', names: ['תּוֹמֶר'],
+    full: 'לְתוֹמֶר יֵשׁ כֶּלֶב קָטָן וְלָבָן.',
     questions: [
       { skillCode: 'COMP_LITERAL', questionLevel: 1,
-        questionText: 'אֵיזֶה בַּעַל חַיִּים יֵשׁ לְסַמִּי?',
+        questionText: 'אֵיזֶה בַּעַל חַיִּים יֵשׁ לְתוֹמֶר?',
         options: ['כֶּלֶב', 'חָתוּל', 'דָּג', 'אַרְנָב'], correctOption: 0,
-        explanation: 'כָּתוּב "לְסַמִּי יֵשׁ כֶּלֶב" — זֶה בְּדִיּוּק מָה שֶׁשָּׁאֲלוּ.',
-        hintText: 'מָה כָּתוּב שֶׁיֵּשׁ לְסַמִּי?' },
+        explanation: 'כָּתוּב "לְתוֹמֶר יֵשׁ כֶּלֶב" — זֶה בְּדִיּוּק מָה שֶׁשָּׁאֲלוּ.',
+        hintText: 'מָה כָּתוּב שֶׁיֵּשׁ לְתוֹמֶר?' },
       { skillCode: 'COMP_VOCAB', questionLevel: 1,
         questionText: 'מָה הַגֹּדֶל שֶׁל הַכֶּלֶב?',
         options: ['קָטָן', 'גָּדוֹל', 'עָנָק', 'שָׁמֵן'], correctOption: 0,

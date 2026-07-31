@@ -16,7 +16,8 @@
  * "what happened first / next" multiple choice instead.
  *
  * ⚠️ NIKUD REVIEW: Dima proofs vocalization before Mia's first real diagnostic.
- * Diverse Israeli names on purpose (Hebrew/Arabic/Russian).
+ * Names: Hebrew/Israeli and internationally common names (Dima's preference,
+ * July 2026). Keep this in mind when generating the Phase 8 content bank.
  */
 
 import type { NikudState, Passage, ReadingLevel, SkillCode, VocabTier } from '../types';
@@ -102,10 +103,10 @@ export const ENTRY_ITEMS: DiagItem[] = [
   // E4 — literal.
   {
     id: 'E4', phase: 'entry', kind: 'passage', skillCode: 'COMP_LITERAL',
-    passage: pass({ id: 'lit', level: 1, tier: 'T1', full: 'אָדָם בָּנָה סֻכָּה בֶּחָצֵר. אַחְמַד, הֶחָבֵר שֶׁלּוֹ, הֵבִיא כִּסְּאוֹת.' }),
+    passage: pass({ id: 'lit', level: 1, tier: 'T1', full: 'אָדָם בָּנָה סֻכָּה בֶּחָצֵר. יוֹנָתָן, הֶחָבֵר שֶׁלּוֹ, הֵבִיא כִּסְּאוֹת.' }),
     nikud: 'full',
     questionText: 'מִי הֵבִיא כִּסְּאוֹת?',
-    options: ['אַחְמַד', 'אָדָם', 'אַבָּא', 'הַשָּׁכֵן'],
+    options: ['יוֹנָתָן', 'אָדָם', 'אַבָּא', 'הַשָּׁכֵן'],
     correctOption: 0,
   },
   // E5 — vocab in context.
@@ -139,9 +140,9 @@ export const ENTRY_ITEMS: DiagItem[] = [
   {
     id: 'E8', phase: 'entry', kind: 'passage', skillCode: 'COMP_INFERENCE',
     secondarySkillCode: 'COMP_CHARACTER',
-    passage: pass({ id: 'inf', level: 2, tier: 'T2', full: 'יַסְמִין הִסְתַּכְּלָה עַל הַגְּלִידָה שֶׁנָּפְלָה לָהּ עַל הָרִצְפָּה. הָעֵינַיִם שֶׁלָּהּ הִתְמַלְּאוּ דְּמָעוֹת.' }),
+    passage: pass({ id: 'inf', level: 2, tier: 'T2', full: 'אֵלָה הִסְתַּכְּלָה עַל הַגְּלִידָה שֶׁנָּפְלָה לָהּ עַל הָרִצְפָּה. הָעֵינַיִם שֶׁלָּהּ הִתְמַלְּאוּ דְּמָעוֹת.' }),
     nikud: 'full',
-    questionText: 'מָה יַסְמִין הִרְגִּישָׁה?',
+    questionText: 'מָה אֵלָה הִרְגִּישָׁה?',
     options: ['עֶצֶב', 'שִׂמְחָה', 'כַּעַס עַל חָבֵר', 'גַּאֲוָה'],
     correctOption: 0,
   },
@@ -256,7 +257,7 @@ export const VERIFICATION_POOL: DiagItem[] = [
     'עַל מָה הַקֶּטַע מְסַפֵּר?',
     ['עַל טִיּוּלֵי הַחֹרֶף שֶׁל אוֹרִי', 'עַל שִׁעוּרֵי הַבַּיִת', 'עַל חֲנוּת הַשּׁוֹקוֹ', 'עַל הַקַּיִץ בַּיָּם'], 2),
   v('V_TIT_1', 'COMP_TITLE',
-    'בַּכִּתָּה שֶׁל נוּר יֵשׁ פִּנַּת קְרִיאָה חֲדָשָׁה. יֵשׁ בָּהּ שָׁטִיחַ רַךְ, כָּרִיּוֹת גְּדוֹלוֹת וּמַדָּף מָלֵא סְפָרִים. כָּל הַיְּלָדִים רוֹצִים לָשֶׁבֶת שָׁם בַּהַפְסָקָה.',
+    'בַּכִּתָּה שֶׁל נֹעַם יֵשׁ פִּנַּת קְרִיאָה חֲדָשָׁה. יֵשׁ בָּהּ שָׁטִיחַ רַךְ, כָּרִיּוֹת גְּדוֹלוֹת וּמַדָּף מָלֵא סְפָרִים. כָּל הַיְּלָדִים רוֹצִים לָשֶׁבֶת שָׁם בַּהַפְסָקָה.',
     'אֵיזוֹ כּוֹתֶרֶת הֲכִי מַתְאִימָה?',
     ['פִּנַּת הַקְּרִיאָה שֶׁלָּנוּ', 'יוֹם סְפּוֹרְט', 'הַטִּיּוּל הַשְּׁנָתִי', 'מְסִבַּת יוֹם הֻלֶּדֶת'], 2),
 ];
