@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import type { Gender } from '../types';
 import { t } from '../i18n/t';
-import { computeTrophyState } from '../lib/trophies';
-import { loadSessionRecords, loadMasteryMap } from '../lib/sessionStore';
+import { computeTrophyState, deriveTrophyExtras } from '../lib/trophies';
+import { loadSessionRecords, loadMasteryMap, loadAttempts } from '../lib/sessionStore';
 
 interface Props {
   profileId: string;
@@ -18,9 +18,10 @@ export function TrophyRoom({ profileId, gender, onBack }: Props) {
   const state = useMemo(() => {
     const mastery = loadMasteryMap(profileId);
     const masteredCount = Object.values(mastery).filter(r => r.status === 'שליטה').length;
-    return computeTrophyState(loadSessionRecords(profileId), {
-      masteredCount, noNikudPassages: 0, level3Passages: 0,
-    });
+    return computeTrophyState(
+      loadSessionRecords(profileId),
+      deriveTrophyExtras(loadAttempts(profileId), masteredCount),
+    );
   }, [profileId]);
 
   return (

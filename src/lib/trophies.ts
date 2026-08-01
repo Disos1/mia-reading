@@ -17,7 +17,7 @@
  * fixing the "badges reshuffle every run" feedback from math.
  */
 
-import type { SessionRecord } from '../types';
+import type { PracticeAttempt, SessionRecord } from '../types';
 
 // ─── Star rule ───────────────────────────────────────────────────────────────
 
@@ -71,6 +71,29 @@ export interface TrophyState {
   earnedCount:   number;
   totalTrophies: number;
   currentStreak: number;
+}
+
+/**
+ * Derive the reading-specific trophy counters from the attempt ledger.
+ *
+ * Both callers used to pass literal zeros here, which quietly made every
+ * nikud and level badge permanently unearnable — they rendered forever locked
+ * at 0/1 no matter what she read. Counting DISTINCT passages (not attempts)
+ * keeps a single passage answered three times from paying out three times,
+ * and first-attempt-only matches how everything else in the app is scored.
+ */
+export function deriveTrophyExtras(
+  attempts: PracticeAttempt[],
+  masteredCount: number,
+): TrophyExtras {
+  const noNikud = new Set<string>();
+  const level3  = new Set<string>();
+  for (const a of attempts) {
+    if (!a.firstAttempt || !a.correct) continue;
+    if (a.nikud === 'none') noNikud.add(a.passageId);
+    if (a.level >= 3)       level3.add(a.passageId);
+  }
+  return { masteredCount, noNikudPassages: noNikud.size, level3Passages: level3.size };
 }
 
 /** Reading-specific counters the caller derives from the attempt ledger

@@ -23,6 +23,9 @@ export const REDIAG_DAY_THRESHOLD     = 7;
 
 // ─── Scaffold (spec Part 3: patient drop / aggressive climb) ───────────────────
 
+/** Highest reading level the scaffold will climb to (4 = 4th grade, added in
+ *  Phase 5 — the ceiling stayed at 3 until Phase 6, which capped her). */
+export const MAX_READING_LEVEL = 4;
 export const CLIMB_STREAK = 2;  // 2 consecutive correct at a level → climb one level
 export const DROP_STREAK  = 2;  // 2 consecutive wrong at a level → drop one level
 
@@ -30,6 +33,9 @@ export const DROP_STREAK  = 2;  // 2 consecutive wrong at a level → drop one l
 
 /** Timed mode target (ms) — 15 min start (auto-ramp to 20 is V1.5). */
 export const SESSION_TIME_MS = 15 * 60 * 1000;
+/** How far past SESSION_TIME_MS a timed session may run while waiting for her
+ *  to reach star eligibility. Past this it ends regardless. */
+export const TIMED_MODE_MAX_OVERRUN = 1.5;
 /** Quantity mode default item count. */
 export const SESSION_QUANTITY_ITEMS = 15;
 /** Open-mode "עוד אחד?" nudge cadence. */

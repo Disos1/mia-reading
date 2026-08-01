@@ -36,6 +36,8 @@ import { syncPassageShown } from '../lib/sync';
 import { appendRecentPassageIds, appendRecentQuestionIds, loadRecentPassageIds, loadRecentQuestionIds } from '../lib/recentItems';
 import { bumpSessionsCompleted } from '../lib/profile';
 import { loadSignatures, saveSignatures, resolveRecipes, updateSignatures } from '../lib/errorSignatures';
+import { SESSION_TIME_MS, TIMED_MODE_MAX_OVERRUN } from '../constants/config';
+import { MIN_ITEMS_FOR_STARS } from '../lib/trophies';
 import type { ScaffoldMove } from '../lib/scaffold';
 
 interface Props {
@@ -61,6 +63,7 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
   const g = { gender };
   const sessionId = useMemo(newId, []);
   const startedAt = useMemo(() => new Date().toISOString(), []);
+  const startedMs = useRef(Date.now());
 
   // Persistent state carried across items (refs so item callbacks see latest).
   const masteryRef = useRef<MasteryMap>(loadMasteryMap(profile.profileId));
@@ -78,7 +81,13 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
 
   // Scaffold — starts from cross-session memory (per profile), floor from gap.
   const floor = profile.gapProfileJson?.composerNotes.passageDifficultyFloor ?? 1;
-  const startNikud: NikudState = 'full';
+  const nikudDependent = profile.gapProfileJson?.composerNotes.nikudDependence === true;
+
+  // First-ever session has no memory to resume from. A reader the diagnostic
+  // placed at Level 3+ and who is NOT nikud-dependent already reads unpointed
+  // text at school, so starting her on full nikud would be a step backwards.
+  const startNikud: NikudState = !nikudDependent && floor >= 3 ? 'partial' : 'full';
+
   const scaffoldRef = useRef<ScaffoldState>((() => {
     const mem = loadScaffoldMemory(profile.profileId)['reading'];
     return initScaffold(mem?.level ?? floor, mem?.nikud ?? startNikud);
@@ -114,7 +123,9 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
     masteryMap:      masteryRef.current,
     gapProfile:      profile.gapProfileJson,
     startLevel:      scaffoldRef.current.level,
-    startNikud,
+    // The RESUMED nikud, not the cold-start default — otherwise every session
+    // silently reset her to full vowels and the weaning never happened.
+    startNikud:      scaffoldRef.current.nikud,
     recentPassages:  loadRecentPassageIds(profile.profileId),
     recentQuestions: loadRecentQuestionIds(profile.profileId),
     recipes,
@@ -143,6 +154,19 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
     const id = setTimeout(() => setBanner(null), 3500);
     return () => clearTimeout(id);
   }, [banner]);
+
+  // Timed-mode clock. Ticks every 15s (a minute-granularity display does not
+  // need a per-second re-render of the whole session).
+  const [minutesLeft, setMinutesLeft] = useState(() => Math.ceil(SESSION_TIME_MS / 60000));
+  useEffect(() => {
+    if (mode !== 'time') return;
+    const tick = () => setMinutesLeft(
+      Math.max(0, Math.ceil((SESSION_TIME_MS - (Date.now() - startedMs.current)) / 60000)),
+    );
+    tick();
+    const id = setInterval(tick, 15000);
+    return () => clearInterval(id);
+  }, [mode]);
 
   const total = plan.targetItems ?? items.length;
   const current = items[index];
@@ -253,14 +277,18 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
   function handleComplete(summary: { firstAttemptCorrect: boolean }) {
     // Scaffold: apply the first-attempt outcome, re-pick the NEXT item's level
     // if the scaffold moved (aggressive climb / patient drop).
-    const { state, move } = applyOutcome(scaffoldRef.current, summary.firstAttemptCorrect, floor);
+    const prev = scaffoldRef.current;
+    const { state, move } = applyOutcome(prev, summary.firstAttemptCorrect, {
+      floor,
+      allowNikudAdvance: !nikudDependent,
+    });
     scaffoldRef.current = state;
     if (move !== 'hold') setBanner(move);
 
     const nextIdx = index + 1;
     if (move !== 'hold' && nextIdx < items.length &&
         items[nextIdx].item.format === ItemFormat.PassageComp &&
-        items[nextIdx].item.level !== state.level) {
+        (items[nextIdx].item.level !== state.level || prev.nikud !== state.nikud)) {
       const replacement = pickItem({
         skill:            items[nextIdx].phase === 'blocked_practice' ? plan.primarySkillCode : undefined,
         level:            state.level,
@@ -275,9 +303,26 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
 
     if (nextIdx >= items.length) {
       finish();
-    } else {
-      setIndex(nextIdx);
+      return;
     }
+
+    // Timed mode: "מצב זמן — בערך 15 דקות" used to be decoration (the item
+    // count alone decided the length). Now the clock actually ends the session,
+    // but only at an item boundary and never before she has attempted enough
+    // items to be eligible for stars — running out the clock at item 6 would
+    // hand her a zero-star card she did nothing to deserve. The hard cap stops
+    // that grace from stretching a slow session indefinitely.
+    if (mode === 'time') {
+      const elapsed = Date.now() - startedMs.current;
+      const attempted = tallyAttempts(attemptsRef.current).attempted;
+      const overtime = elapsed >= SESSION_TIME_MS * TIMED_MODE_MAX_OVERRUN;
+      if (elapsed >= SESSION_TIME_MS && (attempted >= MIN_ITEMS_FOR_STARS || overtime)) {
+        finish();
+        return;
+      }
+    }
+
+    setIndex(nextIdx);
   }
 
   function finish() {
@@ -343,23 +388,30 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
           {t('session.exit', g)}
         </button>
         <div className="text-sm font-medium text-gray-500">
-          {t('session.progress', { ...g, current: index + 1, total })}
+          {mode === 'time'
+            ? t('session.time_left', { ...g, min: minutesLeft })
+            : t('session.progress', { ...g, current: index + 1, total })}
         </div>
         <div className="text-sm font-bold text-brand-coral min-w-16 text-start">
           {combo >= 2 ? t('session.combo', { ...g, count: combo }) : ''}
         </div>
       </div>
 
-      {/* Scaffold move banner */}
+      {/* Scaffold move banner. The nikud step gets its own loud green moment —
+          reading without vowels is the milestone she can actually feel. */}
       {banner && (
         <div className="w-full max-w-2xl mb-3 reveal-in">
           <div
             className="rounded-2xl px-4 py-2 text-center font-bold"
-            style={banner === 'climb'
+            style={banner === 'climb' || banner === 'nikud_forward'
               ? { background: '#DCFCE7', color: '#166534' }
               : { background: '#FEF3C7', color: '#92400E' }}
           >
-            {banner === 'climb' ? t('scaffold.climb', g) : t('scaffold.drop', g)}
+            {banner === 'climb'         ? t('scaffold.climb', g)
+             : banner === 'nikud_forward' ? t(scaffoldRef.current.nikud === 'none'
+                                              ? 'scaffold.nikud_none' : 'scaffold.nikud_partial', g)
+             : banner === 'nikud_back'    ? t('scaffold.nikud_back', g)
+             :                              t('scaffold.drop', g)}
           </div>
         </div>
       )}

@@ -388,6 +388,8 @@ export interface ScaffoldState {
   nikud:              NikudState;
   consecutiveCorrect: number;
   consecutiveWrong:   number;
+  /** Which axis the last climb moved, so climbs alternate level ↔ nikud. */
+  lastClimbAxis:      'level' | 'nikud';
 }
 
 // ─── Scaffold memory (cross-session) ───────────────────────────────────────────

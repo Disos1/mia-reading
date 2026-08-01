@@ -33,6 +33,7 @@ export function Reread({ item, gender, readFloorMultiplier = 1, gapProfile, onAt
   const read1Ms = useRef(0);
   const read2Ms = useRef(0);
   const q1Correct = useRef(false);
+  const q2Correct = useRef(false);
   const readStart = useRef(Date.now());
   const optionsAt = useRef(0);
   const lockRef = useRef(false);   // double-tap guard (see PassageComp)
@@ -91,10 +92,16 @@ export function Reread({ item, gender, readFloorMultiplier = 1, gapProfile, onAt
       rereadPass:   isQ1 ? 1 : 2,
     });
     if (isQ1) q1Correct.current = correct;
+    else      q2Correct.current = correct;
     setTimeout(() => setPhase(isQ1 ? 'between' : 'done'), 900);
   }
 
   const gainSec = Math.round((read1Ms.current - read2Ms.current) / 1000);
+  // Speed only counts when comprehension held. Cheering a faster second pass
+  // that she got WRONG would reward exactly the speed-over-care habit the
+  // diagnostic flagged — repeated reading is meant to build fluency WITH
+  // understanding, not a race.
+  const earnedTheGain = gainSec > 0 && q2Correct.current;
 
   // ── Reading passes ──────────────────────────────────────────────────────────
   if (inRead) {
@@ -132,11 +139,11 @@ export function Reread({ item, gender, readFloorMultiplier = 1, gapProfile, onAt
   if (phase === 'done') {
     return (
       <div className="flex flex-col items-center gap-5 fade-in w-full max-w-md text-center">
-        <div className="text-6xl">{gainSec > 0 ? '🚀' : '🌟'}</div>
+        <div className="text-6xl">{earnedTheGain ? '🚀' : '🌟'}</div>
         <div className="text-2xl font-bold text-brand-navy">
-          {gainSec > 0
-            ? t('reread.faster', { ...g, sec: gainSec })
-            : t('reread.no_gain', g)}
+          {earnedTheGain              ? t('reread.faster', { ...g, sec: gainSec })
+           : gainSec > 0              ? t('reread.faster_but_missed', { ...g, sec: gainSec })
+           :                            t('reread.no_gain', g)}
         </div>
         <BigButton
           onClick={() => onComplete({ firstAttemptCorrect: q1Correct.current, readMs: read1Ms.current })}

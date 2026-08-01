@@ -201,5 +201,14 @@
   "skill.COMP_COMPARE": "השוואה",
   "skill.COMP_GENRE": "סוג הטקסט",
   "a2hs.body_install": "כך היא תיפתח גם בלי אינטרנט, וההתקדמות של מיה תישמר בבטחה במכשיר.",
-  "a2hs.install_cta": "התקנה 📲"
+  "a2hs.install_cta": "התקנה 📲",
+  "scaffold.nikud_partial": "שמתי לב שאת קוראת ממש טוב — מעכשיו נוריד קצת ניקוד 📖",
+  "scaffold.nikud_none": "את קוראת בלי ניקוד — כמו בספרים של הגדולים! 🎉",
+  "scaffold.nikud_back": "נחזיר רגע את הניקוד, שיהיה נוח יותר 🌱",
+  "reread.faster_but_missed": "היית מהירה ב-{sec} שניות — אבל התשובה לא הייתה נכונה. מהירות נחשבת רק כשמבינים 🧭",
+  "end_session.no_stars_short": "הפעם הקריאה הייתה קצרה מדי לכוכבים — עוד {count} שאלות והם שלך 🌱",
+  "end_session.no_stars_accuracy": "הפעם עוד לא הגיעו כוכבים — כדאי לקרוא לאט ובזהירות, וזה יסתדר 🌱",
+  "end_session.stars_meter": "כוכבים מגיעים מ-{min} שאלות ומעלה",
+  "end_session.new_badges": "הישגים חדשים!",
+  "session.time_left": "נשארו {min} דקות"
 }
