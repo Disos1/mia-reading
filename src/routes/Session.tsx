@@ -164,6 +164,9 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
   );
   const [index, setIndex] = useState(0);
   const [finished, setFinished] = useState(false);
+  /** Synchronous mirror of `finished` — the visibilitychange listener must not
+   *  read a stale closure and re-draft an already-completed session. */
+  const finishedRef = useRef(false);
   // Scaffold banner ("something shorter" / "ready for a challenge") — shown
   // briefly when the level moves (spec Part 3 scaffolding rules).
   const [banner, setBanner] = useState<ScaffoldMove | null>(null);
@@ -199,8 +202,17 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
   }, [current?.item.itemId]);
 
   // Partial-save on tab hide (kids close tabs mid-session — math lesson B7).
+  //
+  // The finished check is load-bearing, not defensive: persistDraft() writes
+  // completedAt: null under the SAME sessionId that finish() just completed, so
+  // closing the app on the end card would downgrade a finished session to
+  // "partial". That exact bug bit the math app. `finishedRef` is used rather
+  // than the `finished` state because this listener must never see a stale
+  // closure — the same async-state trap as the double-tap attempt bug.
   useEffect(() => {
-    const onHide = () => { if (document.visibilityState === 'hidden' && !finished) persistDraft(); };
+    const onHide = () => {
+      if (document.visibilityState === 'hidden' && !finishedRef.current) persistDraft();
+    };
     document.addEventListener('visibilitychange', onHide);
     return () => document.removeEventListener('visibilitychange', onHide);
   });
@@ -291,8 +303,29 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
         );
       }
 
-      // Combo.
-      if (r.correct) {
+      // Combo is NOT updated here — see handleComplete. It counts ITEMS, and
+      // this function runs once per ATTEMPT, which is a different number.
+    }
+  }
+
+  function handleComplete(summary: { firstAttemptCorrect: boolean }) {
+    // Scaffold: apply the first-attempt outcome, re-pick the NEXT item's level
+    // if the scaffold moved (aggressive climb / patient drop).
+    // ── Combo: one step per ITEM, which is what she is counting ──────────────
+    //
+    // This used to live in handleAttempt, one step per first ATTEMPT, and the
+    // two numbers are not the same:
+    //   • a Reread item fires TWO first attempts (one per pass), so it counted
+    //     twice for one thing she did;
+    //   • a worked example fires NONE, so a run straight through one appeared
+    //     to lose a step even though she never got anything wrong.
+    // Mia hit this directly — a run of 8 showed 6. A child counting her own
+    // streak is right by definition; the counter has to agree with her.
+    //
+    // Worked examples stay transparent: they are modelled, not answered, so
+    // they neither advance the combo nor break it.
+    if (!current?.isWorkedExample) {
+      if (summary.firstAttemptCorrect) {
         comboRef.current += 1;
         maxComboRef.current = Math.max(maxComboRef.current, comboRef.current);
       } else {
@@ -300,11 +333,7 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
       }
       setCombo(comboRef.current);
     }
-  }
 
-  function handleComplete(summary: { firstAttemptCorrect: boolean }) {
-    // Scaffold: apply the first-attempt outcome, re-pick the NEXT item's level
-    // if the scaffold moved (aggressive climb / patient drop).
     const prev = scaffoldRef.current;
     const { state, move } = applyOutcome(prev, summary.firstAttemptCorrect, {
       floor,
@@ -401,6 +430,7 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
     });
     signaturesRef.current = nextSignatures;
     saveSignatures(profile.profileId, nextSignatures);
+    finishedRef.current = true;
     setRecord(record);
     setFinished(true);
   }

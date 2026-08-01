@@ -4,6 +4,8 @@ import type { Gender } from '../types';
 import { BigButton } from '../components/primitives/BigButton';
 import { downloadBackup, restoreBackup } from '../lib/backup';
 import { storageState, isStandalone, type StorageState } from '../lib/storageDurability';
+import { hebrewVoiceName, voiceCount } from '../lib/tts';
+import { useTtsSupported } from '../lib/useTts';
 
 interface Props {
   gender: Gender;
@@ -19,6 +21,11 @@ interface Props {
  * trip abroad shouldn't be the thing that loses a year of stars.
  */
 export function ParentPanel({ gender, onBack, onRestored }: Props) {
+  // Re-reads on voiceschanged, so this reflects the tablet's real state rather
+  // than whatever was true at first paint.
+  const ttsReady  = useTtsSupported();
+  const voiceName = ttsReady ? hebrewVoiceName() : null;
+  const voices    = voiceCount();
   const g = { gender };
   const [storage, setStorage] = useState<StorageState>('unsupported');
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
@@ -67,6 +74,29 @@ export function ParentPanel({ gender, onBack, onRestored }: Props) {
         <div className="text-sm text-gray-500 leading-relaxed">
           {isStandalone() ? t('parent.installed_yes', g) : t('parent.installed_no', g)}
         </div>
+      </div>
+
+      {/* Diagnostics — version + read-aloud. Both were previously invisible:
+          you could not tell whether her tablet had the latest build, and a
+          missing read-aloud button looked identical whether TTS was broken,
+          still loading, or simply lacking a Hebrew voice. */}
+      <div className="bg-white card-shadow rounded-4xl p-5 w-full max-w-md mb-4">
+        <div className="font-bold text-brand-navy mb-2">{t('parent.diag_title', g)}</div>
+        <div className="text-sm text-gray-500 mb-1">
+          {t('parent.diag_version', { ...g, id: __BUILD_ID__ })}
+        </div>
+        <div className="text-sm text-brand-navy leading-relaxed">
+          {voiceName
+            ? `🔊 ${t('parent.diag_tts_ok', { ...g, voice: voiceName })}`
+            : voices === 0
+              ? `⏳ ${t('parent.diag_tts_loading', g)}`
+              : `🔇 ${t('parent.diag_tts_none', g)}`}
+        </div>
+        {!voiceName && voices > 0 && (
+          <div className="text-xs text-gray-500 leading-relaxed mt-2">
+            {t('parent.diag_tts_fix', g)}
+          </div>
+        )}
       </div>
 
       {/* Backup / restore */}

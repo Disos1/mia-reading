@@ -7,6 +7,13 @@
  *
  * Callers must treat TTS as optional: `ttsSupported()` gates every UI surface,
  * so a device with no Hebrew voice simply never shows the button.
+ *
+ * ANDROID: unlike iOS (which ships Carmit), Chrome on Android reports NO voices
+ * on the first getVoices() call and fills the list asynchronously, and it has a
+ * Hebrew voice only if the Google TTS Hebrew pack is installed. Reading support
+ * once during render therefore answered "no" on a device that could speak fine
+ * a moment later, and nothing re-rendered afterwards — so the read-aloud button
+ * stayed hidden forever. Support is a SUBSCRIPTION now, not a one-shot read.
  */
 
 let cachedVoice: SpeechSynthesisVoice | null | undefined;
@@ -22,9 +29,32 @@ function pickHebrewVoice(): SpeechSynthesisVoice | null {
   return cachedVoice;
 }
 
-// Voice lists load asynchronously in some browsers — refresh the cache.
+const listeners = new Set<() => void>();
+
+// Voice lists load asynchronously in some browsers — refresh the cache AND tell
+// anyone who already asked, so a late-arriving Hebrew voice reveals the button.
 if (typeof speechSynthesis !== 'undefined') {
-  speechSynthesis.onvoiceschanged = () => { cachedVoice = undefined; };
+  speechSynthesis.addEventListener('voiceschanged', () => {
+    cachedVoice = undefined;
+    for (const fn of listeners) fn();
+  });
+}
+
+/** Subscribe to voice-availability changes. Returns an unsubscribe function. */
+export function subscribeVoices(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => { listeners.delete(fn); };
+}
+
+/** Name of the Hebrew voice in use, for the parent diagnostics panel. */
+export function hebrewVoiceName(): string | null {
+  return pickHebrewVoice()?.name ?? null;
+}
+
+/** How many voices the device exposes at all — distinguishes "TTS engine has
+ *  not loaded yet" from "TTS works but has no Hebrew". */
+export function voiceCount(): number {
+  return typeof speechSynthesis === 'undefined' ? 0 : speechSynthesis.getVoices().length;
 }
 
 /** True when the browser can speak Hebrew. */

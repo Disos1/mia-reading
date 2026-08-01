@@ -18,6 +18,7 @@ import {
   RECOVERY_ACCURACY, MIN_ATTEMPTS_TO_JUDGE,
 } from '../../constants/config';
 import type { MasteryMap, MasteryRecord, SkillCode } from '../../types';
+import { ItemFormat } from '../../types';
 
 const RECIPES = resolveRecipes({ signatures: {} } as never);
 
@@ -106,5 +107,27 @@ describe('struggle escalator thresholds are coherent', () => {
 
   it('judges a session only on enough evidence to be fair', () => {
     expect(MIN_ATTEMPTS_TO_JUDGE).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('combo counts items, not attempts', () => {
+  // Mia ran 8 correct in a row and the counter showed 6. The counter lived in
+  // handleAttempt (once per ATTEMPT); she was counting ITEMS. The two differ in
+  // both directions: a Reread item fires two first attempts, a worked example
+  // fires none. These pin the shape of the plan that made the numbers diverge.
+  it('a Reread item carries two probes — two first attempts for one item', () => {
+    const plan = compose({ allowReread: true });
+    const reread = plan.plannedItems.find(p => p.item.format === ItemFormat.Reread);
+    expect(reread).toBeDefined();
+    expect(reread!.item.question2).toBeDefined();
+    expect(reread!.item.question2!.id).not.toBe(reread!.item.question.id);
+  });
+
+  it('a worked example is planned but produces no attempt', () => {
+    const plan = compose();
+    const worked = plan.plannedItems.filter(p => p.isWorkedExample);
+    expect(worked.length).toBeLessThanOrEqual(1);
+    // It occupies a slot she experiences as an item...
+    if (worked.length) expect(worked[0].item).toBeDefined();
   });
 });

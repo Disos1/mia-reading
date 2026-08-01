@@ -7,7 +7,8 @@ import { ExplanationCard } from './ExplanationCard';
 import { STEPWISE_REVEAL_MS } from '../../constants/config';
 import { readFloorMs } from '../../lib/readFloor';
 import { DEV_FAST, DEV_FAST_FLOOR_MS, DEV_FAST_REVEAL_MS } from '../../lib/dev';
-import { speak, stopSpeaking, ttsSupported } from '../../lib/tts';
+import { speak, stopSpeaking } from '../../lib/tts';
+import { useTtsSupported } from '../../lib/useTts';
 import type { FormatAttempt, FormatProps } from './shared';
 
 /** One answer submission, reported up so Session can build the PracticeAttempt. */
@@ -31,6 +32,7 @@ function shuffle<T>(arr: T[]): number[] {
 export function PassageComp({ item, gender, readFloorMultiplier = 1, gapProfile, onAttempt, onComplete }: Props) {
   const g = { gender };
   const { passage, question } = item;
+  const canSpeak = useTtsSupported();
 
   const [phase, setPhase]         = useState<Phase>('reading');
   const [canFinish, setCanFinish] = useState(false);
@@ -202,7 +204,7 @@ export function PassageComp({ item, gender, readFloorMultiplier = 1, gapProfile,
           {!firstCorrect && <ExplanationCard text={question.explanation} gender={gender} />}
           {/* Conditional read-aloud (spec Part 7): offered ONLY after a failed
               comp probe — never up-front, so it's remediation, not avoidance. */}
-          {!firstCorrect && ttsSupported() && (
+          {!firstCorrect && canSpeak && (
             <button
               onClick={() => speak(passage.textFullNikud)}
               className="bg-white border-2 border-brand-sky rounded-2xl px-4 py-2 text-brand-navy

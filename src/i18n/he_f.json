@@ -210,5 +210,11 @@
   "end_session.no_stars_accuracy": "הפעם עוד לא הגיעו כוכבים — כדאי לקרוא לאט ובזהירות, וזה יסתדר 🌱",
   "end_session.stars_meter": "כוכבים מגיעים מ-{min} שאלות ומעלה",
   "end_session.new_badges": "הישגים חדשים!",
-  "session.time_left": "נשארו {min} דקות"
+  "session.time_left": "נשארו {min} דקות",
+  "parent.diag_title": "בדיקת מערכת",
+  "parent.diag_version": "גרסה: {id}",
+  "parent.diag_tts_ok": "הקראה פעילה (קול: {voice})",
+  "parent.diag_tts_loading": "בודק אילו קולות יש במכשיר…",
+  "parent.diag_tts_none": "אין קול עברי במכשיר — כפתור ההקראה מוסתר",
+  "parent.diag_tts_fix": "באנדרואיד: הגדרות ← נגישות ← טקסט לדיבור ← מנוע Google ← התקנת נתוני קול ← עברית. אחרי ההתקנה יש לסגור ולפתוח את האפליקציה."
 }
