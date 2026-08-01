@@ -7,10 +7,19 @@ interface Props {
   onTrophyRoom: () => void;
 }
 
+/**
+ * Only the two BOUNDED modes are selectable, matching the math app (which
+ * retired its open mode in `7cb9f10`): every session should have a defined end,
+ * so "how much longer?" always has an answer and stopping is a finish rather
+ * than a surrender.
+ *
+ * The 'open' SessionMode and its runtime branches stay in the codebase on
+ * purpose — any open-mode sessions already in her history must still load in
+ * the trophy room and the star ledger.
+ */
 const MODES: { id: SessionMode; icon: string; nameKey: string; descKey: string }[] = [
   { id: 'time',     icon: '⏱️', nameKey: 'mode_picker.time.name',     descKey: 'mode_picker.time.desc' },
   { id: 'quantity', icon: '🎯', nameKey: 'mode_picker.quantity.name', descKey: 'mode_picker.quantity.desc' },
-  { id: 'open',     icon: '🌟', nameKey: 'mode_picker.open.name',     descKey: 'mode_picker.open.desc' },
 ];
 
 export function ModePicker({ gender, onPick, onTrophyRoom }: Props) {

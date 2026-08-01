@@ -34,10 +34,10 @@ import type {
   SkillCode,
 } from '../types';
 import { ItemFormat } from '../types';
-import { masteredSkills, skillsInProgress } from './masteryTracker';
+import { masteredSkills, skillsInProgress, probesDue } from './masteryTracker';
 import { eligiblePairs, rereadCandidates, type PassageQuestionPair } from './passages';
 import { skillHebrewKey, COMP_SKILLS } from '../constants/skills';
-import { SESSION_QUANTITY_ITEMS } from '../constants/config';
+import { SESSION_QUANTITY_ITEMS, MAX_READING_LEVEL } from '../constants/config';
 import { NEUTRAL_RECIPES, type RecipeMods } from './errorSignatures';
 import {
   AMBIGUITY_BANK, FLASH_BANK, FLASH_DURATION_MS, ORDERING_BANK, WIC_BANK,
@@ -256,10 +256,12 @@ interface Focus {
   blockedSkill: SkillCode;
   spacedSkills: SkillCode[];
   floor:        ReadingLevel;
+  /** Mastered skills whose 7- or 30-day retention probe has come due. */
+  dueProbes:    SkillCode[];
   reasoning:    string[];
 }
 
-function resolveFocus(masteryMap: MasteryMap, gap: GapProfile | null): Focus {
+function resolveFocus(masteryMap: MasteryMap, gap: GapProfile | null, nowIso: string): Focus {
   const reasoning: string[] = [];
   const masteredSet = new Set<string>(masteredSkills(masteryMap));
   const isActive = (s: string | null | undefined): s is SkillCode =>
@@ -283,12 +285,20 @@ function resolveFocus(masteryMap: MasteryMap, gap: GapProfile | null): Focus {
 
   const floor = gap?.composerNotes.passageDifficultyFloor ?? 1;
 
+  // Retention probes: mastered skills are excluded from the core buckets, so
+  // without this they would never be seen again and שליטה would be a claim the
+  // app stopped checking. Probing is what keeps mastery honest (the math audit
+  // found facts sitting at a false "100%" for months on exactly this bug).
+  const dueProbes = probesDue(masteryMap, nowIso);
+
   if (masteredSet.size > 0) reasoning.push(`excluded ${masteredSet.size} mastered skill(s) from core buckets`);
   reasoning.push(`blocked skill: ${blockedSkill}`);
   reasoning.push(`spaced pool: ${spacedSkills.join(', ') || '(none)'}`);
   reasoning.push(`floor level: ${floor}`);
 
-  return { blockedSkill, spacedSkills, floor, reasoning };
+  if (dueProbes.length) reasoning.push(`retention probes due: ${dueProbes.join(', ')}`);
+
+  return { blockedSkill, spacedSkills, floor, dueProbes, reasoning };
 }
 
 // ─── Bucket sizing ──────────────────────────────────────────────────────────────
@@ -301,7 +311,7 @@ function targetFor(mode: SessionMode): number {
   }
 }
 
-interface BucketPlan { phase: SessionPhase; skill?: SkillCode; level: ReadingLevel; }
+interface BucketPlan { phase: SessionPhase; skill?: SkillCode; level: ReadingLevel; isRetentionProbe?: boolean; }
 
 // ─── Compose ─────────────────────────────────────────────────────────────────
 
@@ -330,7 +340,8 @@ export interface ComposeArgs {
 export function composeSession(args: ComposeArgs): SessionPlan {
   const rng = args.rng ?? Math.random;
   const recipes = args.recipes ?? NEUTRAL_RECIPES;
-  const focus = resolveFocus(args.masteryMap, args.gapProfile);
+  const now   = new Date().toISOString();
+  const focus = resolveFocus(args.masteryMap, args.gapProfile, now);
 
   // Recipe overrides (spec Part 4 composer recipes).
   const blockedSkill = recipes.blockedSkillOverride ?? focus.blockedSkill;
@@ -338,7 +349,7 @@ export function composeSession(args: ComposeArgs): SessionPlan {
     ? ['COMP_VOCAB' as SkillCode, ...focus.spacedSkills.filter(s => s !== 'COMP_VOCAB')]
     : focus.spacedSkills;
   const floor      = recipes.forceLevel ?? focus.floor;
-  const startLevel = recipes.forceLevel ?? clamp(args.startLevel, focus.floor, 3);
+  const startLevel = recipes.forceLevel ?? clamp(args.startLevel, focus.floor, MAX_READING_LEVEL);
   const nikud      = recipes.forceNikud ?? args.startNikud;
   const target     = Math.max(6, Math.round(targetFor(args.mode) * recipes.targetMultiplier));
 
@@ -351,11 +362,20 @@ export function composeSession(args: ComposeArgs): SessionPlan {
   const slots: BucketPlan[] = [];
   for (let i = 0; i < nWarm; i++)  slots.push({ phase: 'warmup', level: floor });
   for (let i = 0; i < nBlock; i++) slots.push({ phase: 'blocked_practice', skill: blockedSkill, level: startLevel });
-  for (let i = 0; i < nSpace; i++) slots.push({ phase: 'spaced_retrieval', skill: spacedSkills[i % Math.max(1, spacedSkills.length)], level: startLevel });
+  // Spaced retrieval leads with any DUE RETENTION PROBES. They take at most half
+  // the bucket so a pile of due probes cannot crowd out live practice, and they
+  // are marked so a miss demotes the skill instead of counting as ordinary work.
+  const probeSlots = focus.dueProbes.slice(0, Math.max(1, Math.floor(nSpace / 2)));
+  for (const skill of probeSlots) {
+    slots.push({ phase: 'spaced_retrieval', skill, level: startLevel, isRetentionProbe: true });
+  }
+  for (let i = 0; i < nSpace - probeSlots.length; i++) {
+    slots.push({ phase: 'spaced_retrieval', skill: spacedSkills[i % Math.max(1, spacedSkills.length)], level: startLevel });
+  }
   for (let i = 0; i < nInter; i++) {
     // Interleaved mixes levels a little for variety (spec: avoid same-format
     // streaks; here we vary level since Phase 1 is single-format).
-    const level = clamp(startLevel + (i % 3 === 2 ? 1 : 0), floor, 3);
+    const level = clamp(startLevel + (i % 3 === 2 ? 1 : 0), floor, MAX_READING_LEVEL);
     slots.push({ phase: 'interleaved', level });
   }
 
@@ -449,7 +469,10 @@ export function composeSession(args: ComposeArgs): SessionPlan {
       return;
     }
 
-    plannedItems.push({ item, sessionPhase: slot.phase, position: plannedItems.length });
+    plannedItems.push({
+      item, sessionPhase: slot.phase, position: plannedItems.length,
+      isRetentionProbe: slot.isRetentionProbe,
+    });
   });
 
   return {

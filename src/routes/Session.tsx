@@ -24,7 +24,10 @@ import { ItemFormat } from '../types';
 import { EndSession } from './EndSession';
 import { composeSession, pickItem } from '../lib/sessionComposer';
 import { applyOutcome, initScaffold } from '../lib/scaffold';
-import { applyAttemptToMastery, type AttemptLedger } from '../lib/masteryTracker';
+import {
+  applyAttemptToMastery, applyProbeResult, ensureProbeSchedules,
+  type AttemptLedger,
+} from '../lib/masteryTracker';
 import { tallyAttempts } from '../lib/tally';
 import {
   loadMasteryMap, saveMasteryMap,
@@ -36,7 +39,11 @@ import { syncPassageShown } from '../lib/sync';
 import { appendRecentPassageIds, appendRecentQuestionIds, loadRecentPassageIds, loadRecentQuestionIds } from '../lib/recentItems';
 import { bumpSessionsCompleted } from '../lib/profile';
 import { loadSignatures, saveSignatures, resolveRecipes, updateSignatures } from '../lib/errorSignatures';
-import { SESSION_TIME_MS, TIMED_MODE_MAX_OVERRUN } from '../constants/config';
+import {
+  SESSION_TIME_MS, TIMED_MODE_MAX_OVERRUN,
+  STRUGGLE_SESSIONS_TO_ESCALATE, STRUGGLE_ACCURACY, RECOVERY_ACCURACY,
+  MIN_ATTEMPTS_TO_JUDGE,
+} from '../constants/config';
 import { MIN_ITEMS_FOR_STARS } from '../lib/trophies';
 import type { ScaffoldMove } from '../lib/scaffold';
 
@@ -50,6 +57,8 @@ interface Props {
 interface RunItem {
   item:  PracticeItem;
   phase: SessionPhase;
+  /** Re-test of a mastered skill — a miss demotes it (see handleAttempt). */
+  isRetentionProbe?: boolean;
   /** Teaching slot — walked through, never scored (build plan H1). */
   isWorkedExample?: boolean;
 }
@@ -66,7 +75,13 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
   const startedMs = useRef(Date.now());
 
   // Persistent state carried across items (refs so item callbacks see latest).
-  const masteryRef = useRef<MasteryMap>(loadMasteryMap(profile.profileId));
+  // Self-heal on load: any skill sitting at שליטה with no probe scheduled gets
+  // one now. Without this, a skill that graduated before probes were wired stays
+  // "mastered" forever without ever being re-tested (the exact false-100% bug
+  // the math audit found).
+  const masteryRef = useRef<MasteryMap>(
+    ensureProbeSchedules(loadMasteryMap(profile.profileId), new Date().toISOString()),
+  );
   const ledgerRef  = useRef<AttemptLedger>(loadLedger(profile.profileId));
   const attemptsRef = useRef<PracticeAttempt[]>([]);
   const seqRef = useRef(0);
@@ -142,7 +157,10 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
   }, [plan]);
 
   const [items, setItems] = useState<RunItem[]>(
-    plan.plannedItems.map(p => ({ item: p.item, phase: p.sessionPhase, isWorkedExample: p.isWorkedExample })),
+    plan.plannedItems.map(p => ({
+      item: p.item, phase: p.sessionPhase,
+      isWorkedExample: p.isWorkedExample, isRetentionProbe: p.isRetentionProbe,
+    })),
   );
   const [index, setIndex] = useState(0);
   const [finished, setFinished] = useState(false);
@@ -263,6 +281,16 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
       masteryRef.current = res.masteryMap;
       ledgerRef.current  = res.ledger;
 
+      // Retention probe: the same answer also decides whether שליטה survives.
+      // A pass pushes the next probe out (7 days → 30 → confirmed); a miss
+      // demotes the skill back to בתהליך so the composer starts teaching it
+      // again. Without this the app awards mastery and never rechecks it.
+      if (runItem.isRetentionProbe) {
+        masteryRef.current = applyProbeResult(
+          masteryRef.current, runItem.item.skillCode, r.correct, attempt.createdAt,
+        );
+      }
+
       // Combo.
       if (r.correct) {
         comboRef.current += 1;
@@ -333,8 +361,35 @@ export function Session({ profile, mode, onExit, onTrophyRoom }: Props) {
     appendAttempts(profile.profileId, attemptsRef.current);
     appendRecentPassageIds(profile.profileId, [...seenPassagesRef.current]);
     appendRecentQuestionIds(profile.profileId, [...seenQuestionsRef.current]);
+    // Cross-session struggle escalator. `struggleSessions` was declared, typed
+    // and documented ("At 3 the composer escalates") — and then written as a
+    // literal 0 on every save, so it could never reach 3 and nothing ever
+    // escalated. A reader can be quietly under water for weeks without the
+    // in-session scaffold noticing, which is exactly what the math audit found.
+    const priorStruggle = loadScaffoldMemory(profile.profileId)['reading']?.struggleSessions ?? 0;
+    const sessionAcc = record.itemsAttempted > 0
+      ? record.itemsCorrect / record.itemsAttempted
+      : null;
+
+    let struggleSessions = priorStruggle;
+    let carryLevel = scaffoldRef.current.level;
+
+    if (sessionAcc !== null && record.itemsAttempted >= MIN_ATTEMPTS_TO_JUDGE) {
+      if (sessionAcc < STRUGGLE_ACCURACY) {
+        struggleSessions += 1;
+        if (struggleSessions >= STRUGGLE_SESSIONS_TO_ESCALATE) {
+          // Three weak sessions running: start the next one a level lower than
+          // where this one ended, never below the diagnostic floor.
+          carryLevel = Math.max(floor, carryLevel - 1) as typeof carryLevel;
+          struggleSessions = 0;
+        }
+      } else if (sessionAcc >= RECOVERY_ACCURACY) {
+        struggleSessions = 0;
+      }
+    }
+
     saveScaffoldMemory(profile.profileId, {
-      reading: { level: scaffoldRef.current.level, nikud: scaffoldRef.current.nikud, struggleSessions: 0 },
+      reading: { level: carryLevel, nikud: scaffoldRef.current.nikud, struggleSessions },
     });
     // Re-detect error signatures over the full history incl. this session
     // (2×2 zone, fatigue, vocab breakdown, literal-vs-inference, nikud ratio).

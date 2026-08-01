@@ -26,6 +26,21 @@ export const REDIAG_DAY_THRESHOLD     = 7;
 /** Highest reading level the scaffold will climb to (4 = 4th grade, added in
  *  Phase 5 — the ceiling stayed at 3 until Phase 6, which capped her). */
 export const MAX_READING_LEVEL = 4;
+// ─── Cross-session struggle escalator (ported from math's cpaMemory) ──────────
+//
+// Within a session the scaffold reacts to two answers in a row. That is too
+// twitchy to notice a reader who is quietly under water for WEEKS — the pattern
+// the math audit found (a skill at 44.8% across 68 sessions with no escalation).
+// These thresholds work on whole sessions instead.
+/** Consecutive weak sessions before the next one starts a level lower. */
+export const STRUGGLE_SESSIONS_TO_ESCALATE = 3;
+/** Session first-attempt accuracy below this counts as a struggle session. */
+export const STRUGGLE_ACCURACY = 0.55;
+/** At or above this the counter resets — she has recovered. */
+export const RECOVERY_ACCURACY = 0.70;
+/** Too few first attempts to judge a session either way. */
+export const MIN_ATTEMPTS_TO_JUDGE = 4;
+
 export const CLIMB_STREAK = 2;  // 2 consecutive correct at a level → climb one level
 export const DROP_STREAK  = 2;  // 2 consecutive wrong at a level → drop one level
 

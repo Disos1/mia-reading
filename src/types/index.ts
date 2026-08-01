@@ -252,7 +252,9 @@ export interface SessionPlanItem {
   item:         PracticeItem;
   sessionPhase: SessionPhase;
   position:     number;          // 0-indexed
-  /** 7/30-day retention probe: first-attempt outcome feeds probe logic. */
+  /** 7/30-day retention probe: a re-test of a skill already at שליטה. The
+   *  first-attempt outcome goes through applyProbeResult, not ordinary mastery —
+   *  a miss demotes the skill back to בתהליך. */
   isRetentionProbe?: boolean;
   /**
    * Teaching slot: walked through with the answer shown, never answered or
