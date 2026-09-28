@@ -15,6 +15,8 @@ import { Diagnostic } from './routes/Diagnostic';
 import { DiagnosticIntro } from './routes/DiagnosticIntro';
 import { DiagnosticResults } from './routes/DiagnosticResults';
 import { ParentPanel } from './routes/ParentPanel';
+import { Paused } from './routes/Paused';
+import { READING_PAUSED } from './constants/pause';
 
 /**
  * Screen state machine — no React Router (same pattern as mia-math).
@@ -57,6 +59,25 @@ export default function App() {
     return () => subscription.unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Paused gate (constants/pause.ts) ──────────────────────────────────────────
+  // Deliberately the first branch after the hooks, ahead of even the auth gate:
+  // while the app is paused no session can start and no attempt can be
+  // recorded, so nothing writes to her ledger. Reading storage is untouched —
+  // pausing is not resetting. The parent panel stays reachable so a backup can
+  // still be exported while the app is off.
+  if (READING_PAUSED) {
+    if (screen === 'parent') {
+      return (
+        <ParentPanel
+          gender={profile?.gender ?? 'f'}
+          onBack={() => setScreen('home')}
+          onRestored={() => window.location.reload()}
+        />
+      );
+    }
+    return <Paused gender={profile?.gender ?? 'f'} onParent={() => setScreen('parent')} />;
+  }
 
   // ── Auth gate ───────────────────────────────────────────────────────────────
   if (SUPABASE_CONFIGURED && !authed) {
